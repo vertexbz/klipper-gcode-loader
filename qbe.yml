@@ -1,0 +1,9 @@
+name: klipper-gcode-loader
+author: vertexbz@gmail.com
+license: WTF
+provides:
+  klipper-config:
+    link:
+      - [ loader.cfg, 0000-gcode-loader.loader.cfg ]
+  klipper-extension:
+    - [ src, gcode_loader ]
