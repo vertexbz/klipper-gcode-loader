@@ -15,14 +15,16 @@ class NotAMacroException(Exception):
 
 class Renderer:
     known_macros: set[str]
+    shallow_macros: set[str]
     objects: collections.OrderedDict
 
-    def __init__(self, macros: Iterable[str], objects: collections.OrderedDict):
+    def __init__(self, macros: Iterable[str], objects: collections.OrderedDict, shallow_macros: list[str]):
         self.known_macros = set(map(lambda m: m.upper(), macros))
+        self.shallow_macros = set(map(lambda m: m.upper(), shallow_macros))
         self.objects = objects
 
     def render(self, line: GCodeLine) -> GCodeIterator:
-        if not line.cmd.upper() in self.known_macros:
+        if line.cmd.upper() in self.shallow_macros or line.cmd.upper() not in self.known_macros:
             raise NotAMacroException()
 
         return self._render(line)

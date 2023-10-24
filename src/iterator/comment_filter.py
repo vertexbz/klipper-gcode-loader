@@ -6,6 +6,6 @@ class CommentFilter(GCodeProxyIterator):
     def __next__(self):
         while True:
             line = next(self.inner)
-            if len(line.data) == 0 or line.data.startswith(';'):
+            if line.cmd is None:
                 continue
             return line

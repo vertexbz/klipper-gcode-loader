@@ -9,7 +9,7 @@ from .string_reader import GCodeStringReader, GCodeMacroReader
 
 if TYPE_CHECKING:
     from ..file import GCodeFile
-    from ..template_renderer import Renderer
+    from ..renderer import Renderer
 
 
 def full_file_iterator(file: GCodeFile, renderer: Renderer):

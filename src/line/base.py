@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from functools import cached_property
+import re
 from typing import Optional
 import copy
-from gcode import GCodeDispatch
+
+BLANK_SPLIT_REGEX = re.compile('\s+')
+CLASSIC_SPLIT_REGEX = re.compile('([A-Z*/])')
 
 
 class GCodeLine:
@@ -25,34 +28,50 @@ class GCodeLine:
         return self.__repr__()
 
     @cached_property
-    def _parts(self):
+    def _split(self):
         line = self.data
         cpos = line.find(';')
         if cpos >= 0:
             line = line[:cpos]
 
-        return GCodeDispatch.args_r.split(line.upper())
+        split = line.strip().split(' ', maxsplit=1)
+        if len(split) == 2:
+            return (split[0].upper(), split[1].lstrip())
+        return (split[0].upper(), '')
 
     @cached_property
-    def cmd(self):
-        parts = self._parts
-        numparts = len(parts)
-        if numparts >= 3 and parts[1] != 'N':
-            return parts[1] + parts[2].strip()
-        elif numparts >= 5 and parts[1] == 'N':
-            return parts[3] + parts[4].strip()
+    def cmd(self) -> Optional[str]:
+        command, _ = self._split
+        if len(command) == 0:
+            return None
 
-        return ''
+        return command
+
+    @cached_property
+    def is_classic(self) -> bool:
+        if self.cmd is None:
+            return False
+
+        return re.match(r'^[MGT][0-9]+(:?\.[0-9]+)?$', self.cmd) is not None
 
     @cached_property
     def params(self):
-        parts = self._parts
-        return {parts[i]: parts[i + 1].strip() for i in range(1, len(parts), 2)}
+        _, rawparams = self._split
+        if len(rawparams) == 0:
+            return {}
+
+        parts = BLANK_SPLIT_REGEX.split(rawparams)
+
+        mapper = lambda s: s.split('=', maxsplit=1)
+        if self.is_classic:
+            mapper = lambda s: CLASSIC_SPLIT_REGEX.split(s)[1:]
+
+        return {s[0].upper(): s[1].strip() for s in map(mapper, parts)}
 
     @cached_property
     def rawparams(self):
-        command = self.cmd
-        if command.startswith("M117 ") or command.startswith("M118 "):
+        command = self.cmd or ''
+        if command in ('M117', 'M118'):
             command = command[:4]
         rawparams = self.data
         urawparams = rawparams.upper()
@@ -65,3 +84,31 @@ class GCodeLine:
         if rawparams.startswith(' '):
             rawparams = rawparams[1:]
         return rawparams
+
+
+if __name__ == '__main__':
+    for s in ('; asd', ' ; asd', '  \t  ; asd', '\t  ; asd', '\t; asd'):
+        line = GCodeLine(s)
+        assert line.cmd is None, f"{line.cmd} == None"
+        assert line.rawparams == s.strip(), f"{line.rawparams} == {s.strip()}"
+        assert len(line.params) == 0, f"{len(line.params) == 0}"
+
+    line = GCodeLine('G1 A6.876 B887.06')
+    assert line.cmd == 'G1', f"{line.cmd} == G1"
+    assert line.rawparams == 'A6.876 B887.06', f"{line.rawparams} == 'A6.876 B887.06'"
+    assert len(line.params) == 2, f"{len(line.params)} == 2; {line.params}"
+    assert line.params['A'] == '6.876', f"{line.params['A']} == '6.876'"
+    assert line.params['B'] == '887.06', f"{line.params['B']} == '887.06'"
+
+    for s in ('M117 asd goes here', 'M118 asd goes here'):
+        line = GCodeLine(s)
+        assert line.cmd in ('M117', 'M118'), f"{line.cmd} in ('M117', 'M118')"
+        assert line.rawparams == 'asd goes here', f"{line.rawparams} == 'asd goes here'"
+
+    line = GCodeLine('MY_MACRO A=6 param=8 foo="baz"')
+    assert line.cmd == 'MY_MACRO', f"{line.cmd} == MY_MACRO"
+    assert line.rawparams == 'A=6 param=8 foo="baz"', f"{line.rawparams} == 'A=6 param=8 foo=\"baz\"'"
+    assert len(line.params) == 3, f"{len(line.params)} == 0; {line.params}"
+    assert line.params['A'] == '6', f"{line.params['A']} == '6'"
+    assert line.params['PARAM'] == '8', f"{line.params['PARAM']} == '8'"
+    assert line.params['FOO'] == '"baz"', f"{line.params['FOO']} == '\"baz\"'"

@@ -5,5 +5,8 @@ provides:
   klipper-config:
     link:
       - [ loader.cfg, 0000-gcode-loader.loader.cfg ]
+    template:
+      - source: config.cfg
+        target: gcode-loader.cfg
   klipper-extension:
     - [ src, gcode_loader ]

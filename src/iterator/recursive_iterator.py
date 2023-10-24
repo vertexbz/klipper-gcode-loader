@@ -1,7 +1,7 @@
 from __future__ import annotations
 from .base import GCodeIterator, GCodeProxyIterator
 from ..line import GCodeLine
-from ..template_renderer import Renderer, NotAMacroException
+from ..renderer import Renderer, NotAMacroException
 
 
 class RecursiveIterator(GCodeProxyIterator):

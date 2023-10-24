@@ -5,7 +5,7 @@ from .file import GCodeFile, OpenGcodeFile
 from ..virtual_sdcard import VALID_GCODE_EXTS
 
 if TYPE_CHECKING:
-    from .template_renderer import Renderer
+    from .renderer import Renderer
 
 class GCodeLoader:
     def __init__(self, renderer: Renderer, basedir: str):

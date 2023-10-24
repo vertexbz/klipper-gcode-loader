@@ -5,7 +5,7 @@ from ..iterator import full_file_iterator, GCodeIterator
 
 if TYPE_CHECKING:
     from ..line import GCodeLine
-    from ..template_renderer import Renderer
+    from ..renderer import Renderer
 
 
 class OpenGcodeFile(GCodeFile):

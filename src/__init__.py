@@ -5,10 +5,10 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
-import os, logging
+import os, logging, ast
 
 from .loader import GCodeLoader
-from .template_renderer import Renderer
+from .renderer import Renderer
 
 if TYPE_CHECKING:
     from gcode import GCodeCommand
@@ -36,8 +36,9 @@ class GCodeLoaderKlipper:
     def __init__(self, config: ConfigWrapper):
         # Loader setup
         self.renderer = Renderer(
-            [section_config.get_name().split()[1] for section_config in config.get_prefix_sections('gcode_macro')],
-            config.get_printer().objects
+            [section_config.get_name().split()[1] for section_config in config.get_prefix_sections('gcode_macro ')],
+            config.get_printer().objects,
+            ast.literal_eval(config.get('shallow', '[]'))
         )
         self.loader = GCodeLoader(self.renderer, os.path.normpath(os.path.expanduser(config.get('path'))))
         self.current_file = None
