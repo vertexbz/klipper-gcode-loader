@@ -2,7 +2,7 @@ from __future__ import annotations
 import collections
 from typing import TYPE_CHECKING, Iterable
 
-from .iterator import CommentFilter, GCodeMacroReader
+from .iterator import CommentFilter, GCodeMacroReader, GCodeIterator
 
 if TYPE_CHECKING:
     from .line import GCodeLine
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 class NotAMacroException(Exception):
     pass
 
+
 class Renderer:
     known_macros: set[str]
     objects: collections.OrderedDict
@@ -20,7 +21,7 @@ class Renderer:
         self.known_macros = set(map(lambda m: m.upper(), macros))
         self.objects = objects
 
-    def render(self, line: GCodeLine) -> Iterable[GCodeLine]:
+    def render(self, line: GCodeLine) -> GCodeIterator:
         if not line.cmd.upper() in self.known_macros:
             raise NotAMacroException()
 
@@ -32,7 +33,7 @@ class Renderer:
     def remove_known_macro(self, macro: str):
         self.known_macros.remove(macro.upper())
 
-    def _render(self, line: GCodeLine) -> Iterable[GCodeLine]:
+    def _render(self, line: GCodeLine) -> GCodeIterator:
         return CommentFilter(GCodeMacroReader(line.cmd, self._render_macro(line), line))
 
     def _find_macro(self, macro: str) -> GCodeMacro:
@@ -57,4 +58,3 @@ class Renderer:
         kwparams['rawparams'] = line.rawparams
 
         return macro.template.run_gcode_from_command(kwparams)
-

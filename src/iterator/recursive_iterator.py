@@ -4,33 +4,39 @@ from ..line import GCodeLine
 from ..template_renderer import Renderer, NotAMacroException
 
 
-class MachineGCodeGenerator(GCodeProxyIterator):
+class RecursiveIterator(GCodeProxyIterator):
     renderer: Renderer
-    compiled: list[GCodeLine]
+    nested: list[GCodeIterator]
 
     def __init__(self, inner: GCodeIterator, renderer: Renderer):
         super().__init__(inner)
         self.renderer = renderer
-        self.compiled = []
+        self.nested = []
 
     def _get_next_line(self) -> GCodeLine:
-        if len(self.compiled) > 0:
-            return self.compiled.pop(0)
-        return self.inner.__next__()
+        while True:
+            if len(self.nested) > 0:
+                try:
+                    return next(self.nested[0])
+                except StopIteration:
+                    self.nested.pop(0)
+                    continue
+
+        return next(self.inner)
 
     def __next__(self):
         while True:
             line = self._get_next_line()
             try:
-                self.compiled = list(self.renderer.render(line)) + self.compiled
+                self.nested.insert(0, self.renderer.render(line))
                 continue
             except NotAMacroException:
                 return line
 
     def seek(self, pos: int):
         super().seek(pos)
-        self.compiled = []
+        self.nested = []
 
     def close(self):
         super().close()
-        self.compiled = []
+        self.nested = []

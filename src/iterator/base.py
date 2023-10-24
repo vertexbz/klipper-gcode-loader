@@ -30,6 +30,7 @@ class GCodeIterator(Iterator[GCodeLine]):
     def seek(self, pos: int):
         pass
 
+
 class GCodeProxyIterator(GCodeIterator):
     __slots__ = ()
 
@@ -37,7 +38,7 @@ class GCodeProxyIterator(GCodeIterator):
         self.inner = inner
 
     def __next__(self):
-        return self.inner.__next__()
+        return next(self.inner)
 
     @property
     def pos(self) -> int:
