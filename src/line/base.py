@@ -9,6 +9,12 @@ BLANK_SPLIT_REGEX = re.compile('\s+')
 CLASSIC_SPLIT_REGEX = re.compile('([A-Z*/])')
 
 
+def _fix_param(param: str) -> str:
+    if param.startswith('"') and param.endswith('"') or param.startswith('"') and param.endswith('"'):
+        return param[1:-1]
+    return param
+
+
 class GCodeLine:
     def __init__(self, data: str):
         self.data = data.strip()
@@ -66,7 +72,7 @@ class GCodeLine:
         if self.is_classic:
             mapper = lambda s: CLASSIC_SPLIT_REGEX.split(s)[1:]
 
-        return {s[0].upper(): s[1].strip() for s in map(mapper, parts)}
+        return {s[0].upper(): _fix_param(s[1].strip()) for s in map(mapper, parts)}
 
     @cached_property
     def rawparams(self):
