@@ -33,14 +33,14 @@ class GCodeLoaderKlipper:
     gcode: GCodeDispatch
     on_error_gcode: TemplateWrapper
 
-    def __init__(self, config: ConfigWrapper):
+    def __init__(self, config: ConfigWrapper, basedir: str):
         # Loader setup
         self.renderer = Renderer(
             [section_config.get_name().split()[1] for section_config in config.get_prefix_sections('gcode_macro ')],
             config.get_printer().objects,
             ast.literal_eval(config.get('shallow', '[]'))
         )
-        self.loader = GCodeLoader(self.renderer, os.path.normpath(os.path.expanduser(config.get('path'))))
+        self.loader = GCodeLoader(self.renderer, os.path.normpath(os.path.expanduser(basedir)))
         self.current_file = None
 
         # Klipper setup
@@ -302,10 +302,8 @@ def load_config(config: ConfigWrapper):
     if printer.lookup_object('virtual_sdcard', None):
         raise config.error('virtual_sdcard already loaded')
 
-    loader = GCodeLoaderKlipper(config)
+    basedir = config.getsection('virtual_sdcard').get('path')
+    loader = GCodeLoaderKlipper(config, basedir)
     printer.objects['virtual_sdcard'] = loader
-
-    if config.has_section('virtual_sdcard'):
-        config.getsection('virtual_sdcard').get('path', None)
 
     return loader

@@ -28,35 +28,20 @@ is_system_service: False
 
 ### Klipper Configuration
 
-To have `gcode_loader` working you need to replace `virtual_sdcard` configuration with `gcode_loader`, like on example
-below
-
-<table><tr>
-<th>From</th><th>To</th>
-</tr><tr>
-<td valign="top">
-
-```
-[virtual_sdcard]
-path: /home/printer/gcode
-```
-
-</td>
-<td valign="top">
+To have `gcode_loader` working you need to define it **before** `virtual_sdcard`. It is important to load `gcode_loader`
+so it can take `virtual_sdcard`s place, and to keep `virtual_sdcard` to satisfy moonraker.
 
 ```
 [gcode_loader]
+
+[virtual_sdcard]
 path: /home/printer/gcode
 ```
-
-</td>
-</tr></table>
 
 ### Additional configuration options
 
 ```
 [gcode_loader]
-path: /home/printer/gcode
 # Forces uninterrupted (shallow) execution of provided macros 
 shallow: ['T0', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11']
 ```
