@@ -19,6 +19,7 @@ class RecursiveIterator(GCodeProxyIterator):
         self.nested = []
 
     def _get_next_line(self) -> GCodeLine:
+        logging.info(f'recursive next line')
         while True:
             if len(self.nested) > 0:
                 try:
@@ -30,6 +31,7 @@ class RecursiveIterator(GCodeProxyIterator):
         return next(self.inner)
 
     def __next__(self):
+        logging.info(f'recursive next')
         while True:
             line = self._get_next_line()
 

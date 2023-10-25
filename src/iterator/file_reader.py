@@ -18,6 +18,7 @@ class GCodeFileReader(GCodeIterator):
             raise RuntimeError('file closed')
 
     def __next__(self) -> GCodeFileLine:
+        logging.info(f'file next')
         self._check_open()
         pos = self.handle.tell()
         line = self.handle.readline(1024 * 8)
