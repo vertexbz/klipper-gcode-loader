@@ -28,6 +28,7 @@ class RecursiveIterator(GCodeProxyIterator):
                     self.nested.pop(0)
                     continue
 
+        logging.info(f'recursive next line inner')
         return next(self.inner)
 
     def __next__(self):
