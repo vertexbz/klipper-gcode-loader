@@ -305,4 +305,7 @@ def load_config(config: ConfigWrapper):
     loader = GCodeLoaderKlipper(config)
     printer.objects['virtual_sdcard'] = loader
 
+    if config.has_section('virtual_sdcard'):
+        config.getsection('virtual_sdcard').get('path', None)
+
     return loader
