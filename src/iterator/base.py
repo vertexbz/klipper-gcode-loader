@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Iterator
-
-if TYPE_CHECKING:
-    from ..line import GCodeLine
+from typing import Iterator
+from ..line import GCodeLine
 
 
 class GCodeIterator(Iterator[GCodeLine]):
