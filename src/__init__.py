@@ -245,6 +245,7 @@ class GCodeLoaderKlipper:
         gcode_mutex = self.gcode.get_mutex()
         error_message = None
         while not self.must_pause_work:
+            logging.info('big loop')
             try:
                 line = self.current_file.next()
             except StopIteration:
@@ -267,6 +268,7 @@ class GCodeLoaderKlipper:
             self.cmd_from_sd = True
 
             try:
+                logging.info(f'executing line {line}')
                 self.gcode.run_script(line)
             except self.gcode.error as e:
                 error_message = f'{str(e)}, stacktrace {repr(line)}'
