@@ -42,8 +42,8 @@ path: /home/printer/gcode
 
 ```
 [gcode_loader]
-# Forces uninterrupted (shallow) execution of provided macros 
-shallow: ['T0', 'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11']
+# A comma separated list of macros to be executed without interruption
+uninterrupted: T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11
 ```
 
 ## TODO

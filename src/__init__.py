@@ -38,7 +38,7 @@ class GCodeLoaderKlipper:
         self.renderer = Renderer(
             [section_config.get_name().split()[1] for section_config in config.get_prefix_sections('gcode_macro ')],
             config.get_printer().objects,
-            ast.literal_eval(config.get('shallow', '[]'))
+            config.getlist('uninterrupted', default=[])
         )
         self.loader = GCodeLoader(self.renderer, os.path.normpath(os.path.expanduser(basedir)))
         self.current_file = None
