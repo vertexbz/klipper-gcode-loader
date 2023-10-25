@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from .base import GCodeIterator
 from ..line import GCodeFileLine
-import logging
 
 if TYPE_CHECKING:
     from ..file import GCodeFile
@@ -19,14 +18,12 @@ class GCodeFileReader(GCodeIterator):
             raise RuntimeError('file closed')
 
     def __next__(self) -> GCodeFileLine:
-        logging.info(f'file next')
         self._check_open()
         pos = self.handle.tell()
         line = self.handle.readline(1024 * 8)
         if line == "":
             raise StopIteration()
 
-        logging.info(f'file line {line}')
         return GCodeFileLine(self.file, pos, line)
 
     def close(self):

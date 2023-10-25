@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 from .base import GCodeFile
 from ..iterator import full_file_iterator, GCodeIterator
-import logging
 
 if TYPE_CHECKING:
     from ..line import GCodeLine
@@ -30,10 +29,7 @@ class OpenGcodeFile(GCodeFile):
             self.peaked_line = None
             return line
 
-        logging.info('open file next')
         self.current_line = next(self.handle)
-
-        logging.info(f'open file line {self.current_line.data}')
         return self.current_line
 
     def current(self) -> GCodeLine:

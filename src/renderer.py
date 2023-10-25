@@ -56,4 +56,4 @@ class Renderer:
         kwparams['params'] = line.params
         kwparams['rawparams'] = line.rawparams
 
-        return macro.template.run_gcode_from_command(kwparams)
+        return macro.template.render(kwparams)
