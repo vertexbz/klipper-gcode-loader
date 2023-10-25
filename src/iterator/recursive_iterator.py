@@ -38,7 +38,6 @@ class RecursiveIterator(GCodeProxyIterator):
             logging.info(f'recursive line {line}')
             try:
                 self.nested.insert(0, self.renderer.render(line))
-                continue
             except NotAMacroException:
                 return line
 
