@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from .base import GCodeIterator
+from ..line import GCodeFileLine
 import logging
 
 if TYPE_CHECKING:
     from ..file import GCodeFile
-    from ..line import GCodeFileLine
 
 
 class GCodeFileReader(GCodeIterator):
