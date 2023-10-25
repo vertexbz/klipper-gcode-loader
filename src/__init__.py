@@ -269,7 +269,7 @@ class GCodeLoaderKlipper:
 
             try:
                 logging.info(f'executing line {line}')
-                self.gcode.run_script(line)
+                self.gcode.run_script(line.data)
             except self.gcode.error as e:
                 error_message = f'{str(e)}, stacktrace {repr(line)}'
                 try:
