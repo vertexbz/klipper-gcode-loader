@@ -260,6 +260,7 @@ class GCodeLoaderKlipper:
 
             # Pause if any other request is pending in the gcode class
             if gcode_mutex.test():
+                self.current_file.backoff()
                 self.reactor.pause(self.reactor.monotonic() + 0.100)
                 continue
 
