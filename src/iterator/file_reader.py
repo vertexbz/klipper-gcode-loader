@@ -11,7 +11,8 @@ if TYPE_CHECKING:
 class GCodeFileReader(GCodeIterator):
     def __init__(self, file: GCodeFile):
         self.file = file
-        self.handle = open(file.path)
+        self.handle = open(file.path, 'r', encoding='utf-8')
+        self.handle.seek(0)
 
     def _check_open(self):
         if self.handle.closed:
