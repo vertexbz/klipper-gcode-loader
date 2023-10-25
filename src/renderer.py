@@ -2,15 +2,12 @@ from __future__ import annotations
 import collections
 from typing import TYPE_CHECKING, Iterable
 
+from .exceptions import NotAMacroException
 from .iterator import CommentFilter, GCodeMacroReader, GCodeIterator
 
 if TYPE_CHECKING:
     from .line import GCodeLine
     from extras.gcode_macro import GCodeMacro
-
-
-class NotAMacroException(Exception):
-    pass
 
 
 class Renderer:

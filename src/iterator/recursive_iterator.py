@@ -1,8 +1,11 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 from .base import GCodeIterator, GCodeProxyIterator
 from ..line import GCodeLine
-from ..renderer import Renderer, NotAMacroException
+from ..exceptions import NotAMacroException
 
+if TYPE_CHECKING:
+    from ..renderer import Renderer
 
 class RecursiveIterator(GCodeProxyIterator):
     renderer: Renderer
