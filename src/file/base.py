@@ -10,7 +10,7 @@ class GCodeFile:
 
     @cached_property
     def path(self):
-        return os.path.join(self.basedir, self.basedir)
+        return os.path.join(self.basedir, self.name)
 
     @cached_property
     def size(self):
