@@ -22,12 +22,12 @@ class RecursiveIterator(GCodeProxyIterator):
         while True:
             if len(self.nested) > 0:
                 try:
-                    return next(self.nested[0])
+                    return self.nested[0].__next__()
                 except StopIteration:
                     self.nested.pop(0)
                     continue
 
-        return next(self.inner)
+        return self.inner.__next__()
 
     def __next__(self):
         while True:

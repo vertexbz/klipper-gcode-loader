@@ -36,7 +36,7 @@ class GCodeProxyIterator(GCodeIterator):
         self.inner = inner
 
     def __next__(self):
-        return next(self.inner)
+        return self.inner.__next__()
 
     @property
     def pos(self) -> int:

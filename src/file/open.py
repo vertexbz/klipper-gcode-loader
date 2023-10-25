@@ -31,7 +31,7 @@ class OpenGcodeFile(GCodeFile):
             return line
 
         logging.info('open file next')
-        self.current_line = next(self.handle)
+        self.current_line = self.handle.__next__()
 
         logging.info(f'open file line {self.current_line.data}')
         return self.current_line
@@ -43,7 +43,7 @@ class OpenGcodeFile(GCodeFile):
         if self.peaked_line is not None:
             return self.peaked_line
 
-        self.peaked_line = next(self.handle)
+        self.peaked_line = self.handle.__next__()
         return self.peaked_line
 
     def close(self):
