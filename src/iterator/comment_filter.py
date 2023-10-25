@@ -6,7 +6,7 @@ import logging
 class CommentFilter(GCodeProxyIterator):
     def __next__(self):
         while True:
-            line = self.inner.__next__()
+            line = next(self.inner)
             if line.cmd is None:
                 continue
 
