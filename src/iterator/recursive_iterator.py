@@ -3,11 +3,9 @@ from typing import TYPE_CHECKING
 from .base import GCodeIterator, GCodeProxyIterator
 from ..line import GCodeLine
 from ..exceptions import NotAMacroException
-import logging
 
 if TYPE_CHECKING:
     from ..renderer import Renderer
-
 
 class RecursiveIterator(GCodeProxyIterator):
     renderer: Renderer
@@ -19,7 +17,6 @@ class RecursiveIterator(GCodeProxyIterator):
         self.nested = []
 
     def _get_next_line(self) -> GCodeLine:
-        logging.info(f'recursive next line')
         while len(self.nested) > 0:
             try:
                 return next(self.nested[0])
@@ -27,15 +24,11 @@ class RecursiveIterator(GCodeProxyIterator):
                 self.nested.pop(0)
                 continue
 
-        logging.info(f'recursive next line inner')
         return next(self.inner)
 
     def __next__(self):
-        logging.info(f'recursive next')
         while True:
             line = self._get_next_line()
-
-            logging.info(f'recursive line {line}')
             try:
                 self.nested.insert(0, self.renderer.render(line))
             except NotAMacroException:

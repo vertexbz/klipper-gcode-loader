@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import Optional
 from .base import GCodeIterator
+
 from ..line import GCodeLine, CompiledGcodeLine
-import logging
 
 
 class GCodeStringReader(GCodeIterator):
@@ -18,8 +18,6 @@ class GCodeStringReader(GCodeIterator):
             self.no += 1
             gcode_line = self._create_line(line)
             self._pos += 1 + len(line)
-
-            logging.info(f'string line {line}')
             return gcode_line
         except IndexError:
             raise StopIteration()
@@ -35,7 +33,7 @@ class GCodeStringReader(GCodeIterator):
         return self._pos
 
     def seek(self, pos: int):
-        pass  # todo
+        pass # todo
 
 
 class GCodeMacroReader(GCodeStringReader):
@@ -43,6 +41,7 @@ class GCodeMacroReader(GCodeStringReader):
         super().__init__(data)
         self.macro = macro
         self.parent = parent
+
 
     def _create_line(self, line: str) -> GCodeLine:
         return CompiledGcodeLine(self.macro, self.no, line, self.parent)
