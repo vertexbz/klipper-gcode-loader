@@ -5,9 +5,13 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
-import os, logging, ast
-
+import os, logging
+from gcode import CommandError
+from .interfaces.loader import VirtualSDCardInterface
 from .loader import GCodeLoader
+from .macro import Macro
+from .macro import PrinterMacro
+from .dispatch import GCodeDispatchHelper
 from .renderer import Renderer
 
 if TYPE_CHECKING:
@@ -21,7 +25,7 @@ if TYPE_CHECKING:
     from .file import GCodeFile, OpenGcodeFile
 
 
-class GCodeLoaderKlipper:
+class GCodeLoaderKlipper(VirtualSDCardInterface):
     renderer: Renderer
     loader: GCodeLoader
     current_file: Optional[OpenGcodeFile]
@@ -33,11 +37,10 @@ class GCodeLoaderKlipper:
     gcode: GCodeDispatch
     on_error_gcode: TemplateWrapper
 
-    def __init__(self, config: ConfigWrapper, basedir: str):
+    def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, basedir: str):
         # Loader setup
         self.renderer = Renderer(
-            [section_config.get_name().split()[1] for section_config in config.get_prefix_sections('gcode_macro ')],
-            config.get_printer().objects,
+            helper,
             config.getlist('uninterrupted', default=[])
         )
         self.loader = GCodeLoader(self.renderer, os.path.normpath(os.path.expanduser(basedir)))
@@ -85,17 +88,17 @@ class GCodeLoaderKlipper:
             return [(file.name, file.size) for file in self.loader.get_file_list(check_subdirs)]
         except:
             logging.exception("virtual_sdcard get_file_list")
-            raise self.gcode.error("Unable to get file list")
+            raise CommandError("Unable to get file list")
 
     # G-Code commands
     def _cmd_error(self, gcmd: GCodeCommand):
-        raise gcmd.error("SD write not supported")
+        raise CommandError("SD write not supported")
 
     cmd_SDCARD_RESET_FILE_help = "Clears a loaded SD File. Stops the print if necessary"
 
     def cmd_SDCARD_RESET_FILE(self, gcmd: GCodeCommand):
         if self.cmd_from_sd:
-            raise gcmd.error(
+            raise CommandError(
                 "SDCARD_RESET_FILE cannot be run from the sdcard")
         self._reset_file()
 
@@ -103,7 +106,7 @@ class GCodeLoaderKlipper:
 
     def cmd_SDCARD_PRINT_FILE(self, gcmd: GCodeCommand):
         if self.work_timer is not None:
-            raise gcmd.error("SD busy")
+            raise CommandError("SD busy")
         self._reset_file()
         filename = gcmd.get("FILENAME")
         self._load_file(gcmd, filename, check_subdirs=True)
@@ -124,7 +127,7 @@ class GCodeLoaderKlipper:
     def cmd_M23(self, gcmd: GCodeCommand):
         # Select SD file
         if self.work_timer is not None:
-            raise gcmd.error("SD busy")
+            raise CommandError("SD busy")
         self._reset_file()
         filename = gcmd.get_raw_command_parameters().strip()
         self._load_file(gcmd, filename)
@@ -140,10 +143,10 @@ class GCodeLoaderKlipper:
     def cmd_M26(self, gcmd: GCodeCommand):
         # Set SD position
         if self.work_timer is not None:
-            raise gcmd.error("SD busy")
+            raise CommandError("SD busy")
 
         if self.current_file is None:
-            raise gcmd.error("no file loaded")
+            raise CommandError("no file loaded")
 
         pos = gcmd.get_int('S', minval=0)
         self.current_file.seek(pos)
@@ -197,7 +200,7 @@ class GCodeLoaderKlipper:
 
     def do_resume(self):
         if self.work_timer is not None:
-            raise self.gcode.error("SD busy")
+            raise CommandError("SD busy")
         self.must_pause_work = False
         self.work_timer = self.reactor.register_timer(self._work_handler, self.reactor.NOW)
 
@@ -269,7 +272,7 @@ class GCodeLoaderKlipper:
 
             try:
                 self.gcode.run_script(line.data)
-            except self.gcode.error as e:
+            except CommandError as e:
                 error_message = f'{str(e)}, stacktrace {repr(line)}'
                 try:
                     self.gcode.run_script(self.on_error_gcode.render())
@@ -300,11 +303,20 @@ class GCodeLoaderKlipper:
 
 def load_config(config: ConfigWrapper):
     printer: Printer = config.get_printer()
+
     if printer.lookup_object('virtual_sdcard', None):
         raise config.error('virtual_sdcard already loaded')
 
+    helper = GCodeDispatchHelper(printer, printer.lookup_object('gcode'))
     basedir = config.getsection('virtual_sdcard').get('path')
-    loader = GCodeLoaderKlipper(config, basedir)
-    printer.objects['virtual_sdcard'] = loader
 
-    return loader
+    extension = GCodeLoaderKlipper(helper, config, basedir)
+
+    printer.objects['virtual_sdcard'] = extension
+
+    printer.objects['gcode_macro'] = printer_macro = PrinterMacro(helper)
+
+    for section in config.get_prefix_sections('gcode_macro '):
+        printer.objects[config.get_name()] = Macro(helper, section, printer_macro)
+
+    return extension

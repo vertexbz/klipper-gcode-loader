@@ -7,6 +7,7 @@ from ..virtual_sdcard import VALID_GCODE_EXTS
 if TYPE_CHECKING:
     from .renderer import Renderer
 
+
 class GCodeLoader:
     def __init__(self, renderer: Renderer, basedir: str):
         self.basedir = basedir

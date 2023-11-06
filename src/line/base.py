@@ -1,9 +1,9 @@
 from __future__ import annotations
-
 from functools import cached_property
 import re
 from typing import Optional
 import copy
+from ..macro.utils import is_classic_gcode
 
 BLANK_SPLIT_REGEX = re.compile('\s+')
 CLASSIC_SPLIT_REGEX = re.compile('([A-Z*/])')
@@ -58,7 +58,7 @@ class GCodeLine:
         if self.cmd is None:
             return False
 
-        return re.match(r'^[MGT][0-9]+(:?\.[0-9]+)?$', self.cmd) is not None
+        return is_classic_gcode(self.cmd)
 
     @cached_property
     def params(self):
@@ -66,6 +66,7 @@ class GCodeLine:
         if len(rawparams) == 0:
             return {}
 
+        # TODO quoted strings support
         parts = BLANK_SPLIT_REGEX.split(rawparams)
 
         mapper = lambda s: s.split('=', maxsplit=1)
