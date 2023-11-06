@@ -11,6 +11,7 @@ from .interfaces.macro import RequiredMacroContextKeys
 if TYPE_CHECKING:
     from gcode import GCodeDispatch
     from klippy import Printer
+    from .macro import Macro
 
 KEY = 'gcode_dispatch_helper'
 
@@ -43,7 +44,7 @@ class GCodeDispatchHelper:
         name = name.upper()
         return name in self._registry
 
-    def get_macro(self, name: str) -> MacroInterface:
+    def get_macro(self, name: str) -> Macro:
         name = name.upper()
         if name not in self._registry:
             raise KeyError(f'no macro {name} found')

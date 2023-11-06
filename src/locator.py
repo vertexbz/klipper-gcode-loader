@@ -1,17 +1,13 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 import os
-from .file import GCodeFile, OpenGcodeFile
+from .file import GCodeFile
 from ..virtual_sdcard import VALID_GCODE_EXTS
 
-if TYPE_CHECKING:
-    from .renderer import Renderer
 
-
-class GCodeLoader:
-    def __init__(self, renderer: Renderer, basedir: str):
+class GCodeLocator:
+    def __init__(self, basedir: str):
         self.basedir = basedir
-        self.renderer = renderer
 
     def get_file_list(self, check_subdirs: bool = False) -> Iterable[GCodeFile]:
         if check_subdirs:
@@ -36,21 +32,21 @@ class GCodeLoader:
                 flist.append(GCodeFile(self.basedir, name))
             return flist
 
-    def load_file(self, filename: str, check_subdirs: bool = False) -> OpenGcodeFile:
+    def load_file(self, filename: str, check_subdirs: bool = False) -> GCodeFile:
         filename = filename.strip().lstrip('.\\/')
 
         if check_subdirs or '/' not in filename:
             if os.path.exists(os.path.join(self.basedir, filename)):
-                return OpenGcodeFile(self.renderer, self.basedir, filename)
+                return GCodeFile(self.basedir, filename)
 
         files = self.get_file_list(check_subdirs)
         for file in files:
             if file.name == filename:
-                return OpenGcodeFile(self.renderer, self.basedir, file.name)
+                return file
 
         filename = filename.lower()
         for file in files:
             if file.name.lower() == filename:
-                return OpenGcodeFile(self.renderer, self.basedir, file.name)
+                return file
 
         raise FileNotFoundError()

@@ -6,10 +6,13 @@ import traceback
 from typing import Any
 from typing import Optional
 from typing import Union
+from typing import TYPE_CHECKING
 from gcode import CommandError
-from ..dispatch import GCodeDispatchHelper
 from ..interfaces.macro import MacroTemplateInterface
 from ..interfaces.macro import RequiredMacroContextKeys
+
+if TYPE_CHECKING:
+    from ..dispatch import GCodeDispatchHelper
 
 Jinja = jinja2.Environment('{%', '%}', '{', '}')
 

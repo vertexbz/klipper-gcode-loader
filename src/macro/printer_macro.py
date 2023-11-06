@@ -3,12 +3,15 @@ import logging
 import traceback
 from typing import Any
 from typing import Union
+from typing import TYPE_CHECKING
 from configfile import error as ConfigError
 from ..interfaces.macro import MacroTemplateInterface
 from ..interfaces.macro import PrinterGCodeMacroInterface
 from ..interfaces.macro import RequiredMacroContextKeys
-from ..dispatch import GCodeDispatchHelper
 from .template import MacroTemplate
+
+if TYPE_CHECKING:
+    from ..dispatch import GCodeDispatchHelper
 
 
 class PrinterMacro(PrinterGCodeMacroInterface):

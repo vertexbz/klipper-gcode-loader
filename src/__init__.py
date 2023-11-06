@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Optional
 import os, logging
 from gcode import CommandError
 from .interfaces.loader import VirtualSDCardInterface
-from .loader import GCodeLoader
+from .iterator import full_file_iterator
+from .locator import GCodeLocator
 from .macro import Macro
 from .macro import PrinterMacro
 from .dispatch import GCodeDispatchHelper
-from .renderer import Renderer
 
 if TYPE_CHECKING:
     from gcode import GCodeCommand
@@ -22,13 +22,13 @@ if TYPE_CHECKING:
     from gcode import GCodeDispatch
     from extras.print_stats import PrintStats
     from extras.gcode_macro import TemplateWrapper
-    from .file import GCodeFile, OpenGcodeFile
+    from .file import GCodeFile
+    from .iterator import FileIterator
 
 
 class GCodeLoaderKlipper(VirtualSDCardInterface):
-    renderer: Renderer
-    loader: GCodeLoader
-    current_file: Optional[OpenGcodeFile]
+    locator: GCodeLocator
+    current_file: Optional[FileIterator]
     printer: Printer
     print_stats: PrintStats
     reactor: Reactor
@@ -36,34 +36,31 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
     cmd_from_sd: bool
     gcode: GCodeDispatch
     on_error_gcode: TemplateWrapper
+    uninterrupted: set[str]
 
     def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, basedir: str):
-        # Loader setup
-        self.renderer = Renderer(
-            helper,
-            config.getlist('uninterrupted', default=[])
-        )
-        self.loader = GCodeLoader(self.renderer, os.path.normpath(os.path.expanduser(basedir)))
+        self.helper = helper
+        self.uninterrupted = set(map(lambda m: m.upper(), config.getlist('uninterrupted', default=[])))
+        self.locator = GCodeLocator(os.path.normpath(os.path.expanduser(basedir)))
         self.current_file = None
 
         # Klipper setup
-        self.printer = config.get_printer()
-        self.printer.register_event_handler("klippy:shutdown", self._handle_shutdown)
+        self.helper.printer.register_event_handler("klippy:shutdown", self._handle_shutdown)
 
         # Print Stat Tracking
-        self.print_stats = self.printer.load_object(config, 'print_stats')
+        self.print_stats = self.helper.printer.load_object(config, 'print_stats')
 
         # Work timer
-        self.reactor = self.printer.get_reactor()
+        self.reactor = self.helper.printer.get_reactor()
         self.must_pause_work = self.cmd_from_sd = False
         self.work_timer = None
 
         # Error handling
-        gcode_macro = self.printer.load_object(config, 'gcode_macro')
+        gcode_macro = self.helper.printer.load_object(config, 'gcode_macro')
         self.on_error_gcode = gcode_macro.load_template(config, 'on_error_gcode', '')
 
         # Register commands
-        self.gcode = self.printer.lookup_object('gcode')
+        self.gcode = self.helper.printer.lookup_object('gcode')
 
         for cmd in ['M20', 'M21', 'M23', 'M24', 'M25', 'M26', 'M27']:
             self.gcode.register_command(cmd, getattr(self, 'cmd_' + cmd))
@@ -85,8 +82,8 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
 
     def get_file_list(self, check_subdirs: bool = False):
         try:
-            return [(file.name, file.size) for file in self.loader.get_file_list(check_subdirs)]
-        except:
+            return [(f.name, f.size) for f in self.locator.get_file_list(check_subdirs)]
+        except BaseException:
             logging.exception("virtual_sdcard get_file_list")
             raise CommandError("Unable to get file list")
 
@@ -96,7 +93,7 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
 
     cmd_SDCARD_RESET_FILE_help = "Clears a loaded SD File. Stops the print if necessary"
 
-    def cmd_SDCARD_RESET_FILE(self, gcmd: GCodeCommand):
+    def cmd_SDCARD_RESET_FILE(self, _: GCodeCommand):
         if self.cmd_from_sd:
             raise CommandError(
                 "SDCARD_RESET_FILE cannot be run from the sdcard")
@@ -213,11 +210,15 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
 
     def _load_file(self, gcmd, filename, check_subdirs=False):
         try:
-            self.current_file = self.loader.load_file(filename, check_subdirs)
+            self.current_file = full_file_iterator(
+                self.locator.load_file(filename, check_subdirs),
+                self.helper,
+                uninterrupted_macros=self.uninterrupted
+            )
             gcmd.respond_raw("File opened:%s Size:%d" % (self.current_file.name, self.current_file.size))
             gcmd.respond_raw("File selected")
             self.print_stats.set_current_file(filename)
-        except:
+        except BaseException:
             logging.exception("virtual_sdcard file open")
             raise FileNotFoundError("Unable to open file")
 
@@ -227,7 +228,7 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
             self.current_file.close()
             self.current_file = None
         self.print_stats.reset()
-        self.printer.send_event("virtual_sdcard:reset_file")
+        self.helper.printer.send_event("virtual_sdcard:reset_file")
 
     def _handle_shutdown(self):
         if self.work_timer is not None:
@@ -235,9 +236,9 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
             try:
                 message = f'Virtual sdcard\nCurrent: {repr(self.current_file.current())}'
                 for _ in range(3):
-                    message += f'\nUpcoming: {repr(self.current_file.next())}'
+                    message += f'\nUpcoming: {repr(next(self.current_file))}'
                 logging.info(message)
-            except:
+            except BaseException:
                 logging.exception("virtual_sdcard shutdown read")
 
     def _work_handler(self, _):
@@ -247,9 +248,14 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
 
         gcode_mutex = self.gcode.get_mutex()
         error_message = None
+        last_line = None
         while not self.must_pause_work:
             try:
-                line = self.current_file.next()
+                if last_line is not None:
+                    line = last_line
+                    last_line = None
+                else:
+                    line = next(self.current_file)
             except StopIteration:
                 # End of file
                 self.current_file.close()
@@ -257,13 +263,13 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
                 logging.info("Finished SD card print")
                 self.gcode.respond_raw("Done printing file")
                 break
-            except:
+            except BaseException:
                 logging.exception("virtual_sdcard read")
                 break
 
             # Pause if any other request is pending in the gcode class
             if gcode_mutex.test():
-                self.current_file.backoff()
+                last_line = line
                 self.reactor.pause(self.reactor.monotonic() + 0.100)
                 continue
 
@@ -276,10 +282,10 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
                 error_message = f'{str(e)}, stacktrace {repr(line)}'
                 try:
                     self.gcode.run_script(self.on_error_gcode.render())
-                except:
+                except BaseException:
                     logging.exception("virtual_sdcard on_error")
                 break
-            except:
+            except BaseException:
                 logging.exception(f'virtual_sdcard dispatch, stacktrace {repr(line)}')
                 break
 
