@@ -19,12 +19,12 @@ Jinja = jinja2.Environment('{%', '%}', '{', '}')
 
 class MacroTemplate(MacroTemplateInterface):
     @classmethod
-    def hash(cls, value: str):
+    def hash_source(cls, value: str):
         return hashlib.sha256(value.encode('utf-8')).hexdigest()
 
     def __init__(self, helper: GCodeDispatchHelper, template: str):
         self.helper = helper
-        self.hash = MacroTemplate.hash(template)
+        self.hash = MacroTemplate.hash_source(template)
         self.template: jinja2.Template = Jinja.from_string(template)
 
     def render(self, context: Optional[dict] = None) -> str:
@@ -35,9 +35,9 @@ class MacroTemplate(MacroTemplateInterface):
         except Exception as e:
             msg = "Error evaluating macro: %s" % (traceback.format_exception_only(type(e), e)[-1])
             logging.exception(msg)
-            raise CommandError(msg)  # todo ensure this gues trough the chain and has stack trace added
+            raise CommandError(msg)  # todo ensure this goes trough the chain and has stack trace added
 
-    def run_gcode_from_command(self, context: Optional[dict] = None):  # TODO rather shouldn't be a method here
+    def run_gcode_from_command(self, context: Optional[dict] = None):
         self.helper.run_script_atomic(self.render(context))
 
     def create_template_context(self, eventtime=None) -> dict[Union[RequiredMacroContextKeys, str], Any]:

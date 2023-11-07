@@ -46,6 +46,15 @@ path: /home/printer/gcode
 uninterrupted: T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11
 ```
 
+## G-Code commands
+
+### `MACRO_RELOAD`
+
+G-Code command `MACRO_RELOAD [VARIABLES=1] [NAME=<macro name>]` re-eads configuration files again and reloads
+macros. By default, it also adds new variables, to disable this behavior add `VARIABLES=0` parameter, or to replace
+current macro variables with those from file use `VARIABLES=2`. You can also restrict reload by macro/template name
+using `NAME=...` parameter.
+
 ## TODO
 
 - [ ] recursive call protection

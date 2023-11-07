@@ -1,8 +1,10 @@
 from __future__ import annotations
+from functools import cached_property
 import logging
 from typing import Any
 from typing import TYPE_CHECKING
 from typing import Union
+from configfile import ConfigWrapper
 from configfile import error as ConfigError
 from extras.gcode_macro import GetStatusWrapper
 from .interfaces.macro import MacroInterface
@@ -12,8 +14,7 @@ if TYPE_CHECKING:
     from gcode import GCodeDispatch
     from klippy import Printer
     from .macro import Macro
-
-KEY = 'gcode_dispatch_helper'
+    from .macro import PrinterMacro
 
 
 class GCodeDispatchHelper:
@@ -22,23 +23,69 @@ class GCodeDispatchHelper:
         self._inner = inner
         self.printer = printer
 
-    def register_macro(self, name: str, macro: MacroInterface):
+    @cached_property
+    def gcode_macro(self) -> PrinterMacro:
+        return self.printer.lookup_object('gcode_macro')
+
+    def load_macro(self, macro_config: ConfigWrapper):
+        macro = Macro(self, macro_config, self.gcode_macro)
         if macro.rename_existing is not None:
             def handle_connect():
-                prev_cmd = self._inner.register_command(macro.alias, None)
-                if prev_cmd is None:
-                    raise ConfigError(f"Existing command '{macro.alias}' not found in gcode_macro rename")
-                self._inner.register_command(macro.rename_existing, prev_cmd,
-                                             desc=f"Renamed builtin of '{macro.alias}'")
+                self.rename_command(macro.alias, macro.rename_existing)
                 self._inner.register_command(macro.alias, macro.cmd, desc=macro.cmd_desc)
 
             self.printer.register_event_handler("klippy:connect", handle_connect)
         else:
             self._inner.register_command(macro.alias, macro.cmd, desc=macro.cmd_desc)
 
+        name: str = macro_config.get_name().split(maxsplit=1)[0]
         self._inner.register_mux_command("SET_GCODE_VARIABLE", "MACRO", name, macro.cmd_SET_GCODE_VARIABLE,
                                          desc="Set the value of a G-Code macro variable")
+
+        self.printer.objects[f'gcode_macro {macro.alias}'] = macro
         self._registry[macro.alias] = macro
+
+    def remove_macro(self, macro_name: str):
+        macro = self.get_macro(macro_name)
+        key = f'gcode_macro {macro.alias}'
+
+        # remove variable access
+        if 'SET_GCODE_VARIABLE' in self._inner.mux_commands:
+            del self._inner.mux_commands['SET_GCODE_VARIABLE'][name]
+
+        # remove gcode
+        if macro.alias in self._inner.ready_gcode_handlers:
+            del self._inner.ready_gcode_handlers[macro.alias]
+        if macro.alias in self._inner.base_gcode_handlers:
+            del self._inner.base_gcode_handlers[macro.alias]
+        if macro.alias in self._inner.gcode_help:
+            del self._inner.gcode_help[macro.alias]
+
+        if macro.rename_existing is not None:
+            self.rename_command(macro.rename_existing, macro.alias)
+
+        # remove from printer configuration
+        if key in self.printer.objects:
+            del self.printer.objects[key]
+
+        self.respond_info(f"Removed {macro.alias}")
+
+    def rename_command(self, old_name: str, new_name: str) -> bool:
+        if old_name == new_name:
+            return False
+
+        orig = self._inner.register_command(old_name, None)
+        if orig is None:
+            raise ConfigError(f"Existing command '{old_name}' not found in gcode_macro rename")
+        self._inner.register_command(new_name, orig)
+
+        help = f"Renamed builtin of '{old_name}'"
+        if old_name in self._inner.gcode_help:
+            self._inner.gcode_help[new_name] = help + '; ' + self._inner.gcode_help[old_name]
+            del self._inner.gcode_help[old_name]
+        else:
+            self._inner.gcode_help[new_name] = help
+        return True
 
     def has_macro(self, name: str) -> bool:
         name = name.upper()
@@ -49,6 +96,9 @@ class GCodeDispatchHelper:
         if name not in self._registry:
             raise KeyError(f'no macro {name} found')
         return self._registry[name]
+
+    def get_macros(self):
+        return self._registry.keys()
 
     def run_script_atomic(self, script):
         return self._inner.run_script_from_command(script)
@@ -62,15 +112,18 @@ class GCodeDispatchHelper:
             'action_call_remote_method': self._action_call_remote_method,
         }
 
-    def _action_emergency_stop(self, msg="action_emergency_stop"):
+    def respond_info(self, msg: str):
+        self._inner.respond_info(msg)
+
+    def _action_emergency_stop(self, msg: str = "action_emergency_stop"):
         self.printer.invoke_shutdown(f"Shutdown due to {msg}")
         return ''
 
-    def _action_respond_info(self, msg):
-        self.printer.lookup_object('gcode').respond_info(msg)
+    def _action_respond_info(self, msg: str):
+        self.respond_info(msg)
         return ''
 
-    def _action_raise_error(self, msg):
+    def _action_raise_error(self, msg: str):
         raise self.printer.command_error(msg)  # TODO ensure stack is added, configured debug mode
 
     def _action_call_remote_method(self, method, **kwargs):
@@ -80,10 +133,3 @@ class GCodeDispatchHelper:
         except self.printer.command_error:
             logging.exception("Remote Call Error")
         return ''
-
-
-def get_gcode_dispatch(printer: Printer) -> GCodeDispatchHelper:
-    if KEY not in printer.objects:
-        printer.objects[KEY] = GCodeDispatchHelper(printer, printer.lookup_object('gcode'))
-
-    return printer.lookup_object(KEY)

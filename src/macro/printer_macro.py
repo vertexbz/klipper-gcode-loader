@@ -5,7 +5,6 @@ from typing import Any
 from typing import Union
 from typing import TYPE_CHECKING
 from configfile import error as ConfigError
-from ..interfaces.macro import MacroTemplateInterface
 from ..interfaces.macro import PrinterGCodeMacroInterface
 from ..interfaces.macro import RequiredMacroContextKeys
 from .template import MacroTemplate
@@ -18,7 +17,7 @@ class PrinterMacro(PrinterGCodeMacroInterface):
     def __init__(self, helper: GCodeDispatchHelper):
         self.helper = helper
 
-    def load_template(self, config, option, default=None) -> MacroTemplateInterface:
+    def load_template(self, config, option, default=None) -> MacroTemplate:
         name = "%s:%s" % (config.get_name(), option)
         if default is None:
             script = config.get(option)

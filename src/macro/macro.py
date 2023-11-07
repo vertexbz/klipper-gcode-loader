@@ -1,5 +1,8 @@
 from __future__ import annotations
+from enum import Enum
+from typing import Optional
 from typing import TYPE_CHECKING, Any
+from jinja2 import TemplateSyntaxError
 from configfile import ConfigWrapper
 from configfile import error as ConfigError
 from gcode import CommandError
@@ -12,9 +15,24 @@ from ..interfaces.macro import PrinterGCodeMacroInterface
 if TYPE_CHECKING:
     from gcode import GCodeCommand
     from ..dispatch import GCodeDispatchHelper
+    from .template import MacroTemplate
+
+
+class VariableMode(Enum):
+    SKIP = 0
+    MERGE = 1
+    REPLACE = 2
 
 
 class Macro(MacroInterface):
+    helper: GCodeDispatchHelper
+    alias: str
+    template: MacroTemplate
+    rename_existing: Optional[str]
+    cmd_desc: str
+    variables: dict[str, Any]
+    in_script: bool
+
     def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, printer_macro: PrinterGCodeMacroInterface):
         name: str = config.get_name().split(maxsplit=1)[0]
         if ' ' in name:
@@ -26,12 +44,10 @@ class Macro(MacroInterface):
         self.rename_existing = config.get("rename_existing", None)
         self.cmd_desc = config.get("description", "G-Code macro")
         self.variables = load_variables(config)
+        self.in_script = False
 
         if self.rename_existing is not None and is_classic_gcode(self.alias) != is_classic_gcode(self.rename_existing):
             raise ConfigError(f"G-Code macro rename of different types ('{self.alias}' vs '{self.rename_existing}')")
-
-        self.helper.register_macro(name, self)
-        self.in_script = False
 
     def render(self, params: dict, rawparams: str) -> str:
         kwparams = dict(self.variables)
@@ -67,3 +83,66 @@ class Macro(MacroInterface):
             self.update_variable(variable, parse_value(value))
         except (SyntaxError, TypeError, ValueError) as e:
             raise CommandError(f"Unable to parse '{value}' as a literal: {e}")
+
+    def update_config(self, macro_config: ConfigWrapper, vars_mode: VariableMode, verbose: bool = False) -> bool:
+        rename_existing: Optional[str] = macro_config.get("rename_existing", None)
+        if self.rename_existing is None and rename_existing is not None:
+            # this shouldn't happen
+            if verbose:
+                self.helper.respond_info(f"Warning: {self.alias}:rename_existing added to config, not updating!")
+            return False
+
+        if self.rename_existing is not None and rename_existing is None:
+            # this shouldn't happen
+            if verbose:
+                self.helper.respond_info(f"Warning: {self.alias}:rename_existing removed from config, not updating!")
+            return False
+
+        try:
+            new_template = self.helper.gcode_macro.load_template(macro_config, 'gcode')
+        except TemplateSyntaxError as e:
+            if verbose:
+                self.helper.respond_info(f'Skipped {self.alias} - template error: {e}')
+            return False
+
+        changed_code = False
+        if new_template.hash != self.template.hash:
+            self.template = new_template
+            changed_code = True
+
+        changed_vars = False
+        if vars_mode == VariableMode.MERGE:
+            new_vars = load_variables(macro_config)
+            new_vars.update(self.variables)
+            if self.variables != new_vars:
+                self.variables = new_vars
+                changed_vars = True
+        if vars_mode == VariableMode.REPLACE:
+            new_vars = load_variables(macro_config)
+            if self.variables != new_vars:
+                self.variables = new_vars
+                changed_vars = True
+
+        changed_orig = False
+        if self.rename_existing is not None and rename_existing is not None:
+            if self.helper.rename_command(self.rename_existing, rename_existing):
+                self.rename_existing = rename_existing
+                changed_orig = True
+
+        changed_desc = False
+        new_desc = macro_config.get("description", "G-Code macro")
+        if self.cmd_desc != new_desc:
+            self.cmd_desc = new_desc
+            changed_desc = True
+
+        updated = changed_code or changed_vars or changed_orig or changed_desc
+
+        if updated and verbose:
+            changes = ", ".join(filter(lambda s: s is not None, [
+                'code' if changed_code else None,
+                'vars' if changed_vars else None,
+                'orig' if changed_orig else None,
+                'desc' if changed_desc else None,
+            ]))
+            self.helper.respond_info(f"Updated {self.alias}'s {changes}")
+        return updated

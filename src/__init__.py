@@ -6,12 +6,15 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 import os, logging
+
+from configfile import PrinterConfig
 from gcode import CommandError
 from .interfaces.loader import VirtualSDCardInterface
 from .iterator import full_file_iterator
 from .locator import GCodeLocator
 from .macro import Macro
 from .macro import PrinterMacro
+from .macro import VariableMode
 from .dispatch import GCodeDispatchHelper
 
 if TYPE_CHECKING:
@@ -26,10 +29,9 @@ if TYPE_CHECKING:
     from .iterator import FileIterator
 
 
-class GCodeLoaderKlipper(VirtualSDCardInterface):
+class GCodeLoader(VirtualSDCardInterface):
     locator: GCodeLocator
     current_file: Optional[FileIterator]
-    printer: Printer
     print_stats: PrintStats
     reactor: Reactor
     must_pause_work: bool
@@ -72,6 +74,8 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
                                     desc=self.cmd_SDCARD_RESET_FILE_help)
         self.gcode.register_command("SDCARD_PRINT_FILE", self.cmd_SDCARD_PRINT_FILE,
                                     desc=self.cmd_SDCARD_PRINT_FILE_help)
+        self.gcode.register_command('MACRO_RELOAD', self.cmd_MACRO_RELOAD,
+                                    desc="Reloads macros from config files")
 
     def stats(self, _):
         if self.work_timer is None:
@@ -95,8 +99,7 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
 
     def cmd_SDCARD_RESET_FILE(self, _: GCodeCommand):
         if self.cmd_from_sd:
-            raise CommandError(
-                "SDCARD_RESET_FILE cannot be run from the sdcard")
+            raise CommandError("SDCARD_RESET_FILE cannot be run from the sdcard")
         self._reset_file()
 
     cmd_SDCARD_PRINT_FILE_help = "Loads a SD file and starts the print. May include files in subdirectories."
@@ -154,6 +157,34 @@ class GCodeLoaderKlipper(VirtualSDCardInterface):
             gcmd.respond_raw("Not SD printing.")
             return
         gcmd.respond_raw("SD printing byte %d/%d" % (self.current_file.pos, self.current_file.size))
+
+    def cmd_MACRO_RELOAD(self, gcmd: GCodeCommand):
+        name_filter = gcmd.get('NAME', None)
+        if name_filter:
+            name_filter = name_filter.upper()
+        vars_mode = gcmd.get_int('VARIABLES', 1)
+
+        config = PrinterConfig(self.helper.printer).read_main_config()
+        config = {s.get_name().split()[1].upper(): s for s in config.get_prefix_sections('gcode_macro ')}
+
+        for name, macro_config in config.items():
+            name = macro_config.get_name().split()[1].upper()
+            if name_filter is not None and name != name_filter:
+                continue
+
+            if self.helper.has_macro(name):
+                self.helper.get_macro(name).update_config(macro_config, VariableMode(vars_mode), verbose=True)
+            else:
+                self.helper.load_macro(macro_config)
+
+        for name in self.helper.get_macros():
+            if name_filter is not None and name != name_filter:
+                continue
+
+            if name not in config:
+                self.helper.remove_macro(name)
+
+        gcmd.respond_info("Reload complete")
 
     def get_file_position(self):
         return self.current_file.pos if self.current_file else 0
@@ -316,13 +347,13 @@ def load_config(config: ConfigWrapper):
     helper = GCodeDispatchHelper(printer, printer.lookup_object('gcode'))
     basedir = config.getsection('virtual_sdcard').get('path')
 
-    extension = GCodeLoaderKlipper(helper, config, basedir)
+    extension = GCodeLoader(helper, config, basedir)
 
     printer.objects['virtual_sdcard'] = extension
 
-    printer.objects['gcode_macro'] = printer_macro = PrinterMacro(helper)
+    printer.objects['gcode_macro'] = PrinterMacro(helper)
 
     for section in config.get_prefix_sections('gcode_macro '):
-        printer.objects[config.get_name()] = Macro(helper, section, printer_macro)
+        helper.load_macro(section)
 
     return extension
