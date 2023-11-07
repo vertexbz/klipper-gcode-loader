@@ -7,8 +7,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 import os, logging
 
-from configfile import PrinterConfig
 from gcode import CommandError
+from .mock.printer_config import PrinterConfig
 from .interfaces.loader import VirtualSDCardInterface
 from .iterator import full_file_iterator
 from .locator import GCodeLocator
