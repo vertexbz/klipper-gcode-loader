@@ -2,6 +2,7 @@ from __future__ import annotations
 from functools import cached_property
 import logging
 from typing import Any
+from typing import Optional
 from typing import TYPE_CHECKING
 from typing import Union
 from configfile import ConfigWrapper
@@ -69,7 +70,7 @@ class GCodeDispatchHelper:
 
         self.respond_info(f"Removed {macro.alias}")
 
-    def rename_command(self, old_name: str, new_name: str) -> bool:
+    def rename_command(self, old_name: str, new_name: str, renaming_existing: bool = False) -> bool:
         if old_name == new_name:
             return False
 
@@ -78,13 +79,24 @@ class GCodeDispatchHelper:
             raise ConfigError(f"Existing command '{old_name}' not found in gcode_macro rename")
         self._inner.register_command(new_name, orig)
 
-        help = f"Renamed builtin of '{old_name}'"
         if old_name in self._inner.gcode_help:
-            self._inner.gcode_help[new_name] = help + '; ' + self._inner.gcode_help[old_name]
-            del self._inner.gcode_help[old_name]
-        else:
-            self._inner.gcode_help[new_name] = help
+            self.set_macro_description(new_name, self.get_macro_description(old_name))
+            self.set_macro_description(old_name, None)
+        elif renaming_existing:
+            self.set_macro_description(new_name, f"Renamed builtin of '{old_name}'")
         return True
+
+    def get_macro_description(self, name: str) -> Optional[str]:
+        if name not in self._inner.gcode_help:
+            return None
+        return self._inner.gcode_help[name]
+
+    def set_macro_description(self, name: str, desc: Optional[str]):
+        if desc is None:
+            if name in self._inner.gcode_help:
+                del self._inner.gcode_help[name]
+        else:
+            self._inner.gcode_help[name] = desc
 
     def has_macro(self, name: str) -> bool:
         name = name.upper()

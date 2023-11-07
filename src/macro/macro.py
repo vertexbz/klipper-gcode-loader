@@ -127,13 +127,14 @@ class Macro(MacroInterface):
 
         changed_orig = False
         if self.rename_existing is not None and rename_existing is not None:
-            if self.helper.rename_command(self.rename_existing, rename_existing):
+            if self.helper.rename_command(self.rename_existing, rename_existing, renaming_existing=True):
                 self.rename_existing = rename_existing
                 changed_orig = True
 
         changed_desc = False
         new_desc = macro_config.get("description", "G-Code macro")
         if self.cmd_desc != new_desc:
+            self.helper.set_macro_description(self.alias, new_desc)
             self.cmd_desc = new_desc
             changed_desc = True
 
