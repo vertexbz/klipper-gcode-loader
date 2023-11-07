@@ -9,11 +9,11 @@ from configfile import error as ConfigError
 from extras.gcode_macro import GetStatusWrapper
 from .interfaces.macro import MacroInterface
 from .interfaces.macro import RequiredMacroContextKeys
+from .macro import Macro
 
 if TYPE_CHECKING:
     from gcode import GCodeDispatch
     from klippy import Printer
-    from .macro import Macro
     from .macro import PrinterMacro
 
 
