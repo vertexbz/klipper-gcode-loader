@@ -26,6 +26,7 @@ class VariableMode(Enum):
 
 class Macro(MacroInterface):
     helper: GCodeDispatchHelper
+    name: str
     alias: str
     template: MacroTemplate
     rename_existing: Optional[str]
@@ -34,11 +35,12 @@ class Macro(MacroInterface):
     in_script: bool
 
     def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, printer_macro: PrinterGCodeMacroInterface):
-        name: str = config.get_name().split(maxsplit=1)[0]
+        name: str = config.get_name().split(maxsplit=1)[1]
         if ' ' in name:
             raise ConfigError(f"Name of section '{name}' contains illegal whitespace")
 
         self.helper = helper
+        self.name = name
         self.alias = name.upper()
         self.template = printer_macro.load_template(config, 'gcode')
         self.rename_existing = config.get("rename_existing", None)

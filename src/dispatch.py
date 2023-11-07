@@ -38,20 +38,19 @@ class GCodeDispatchHelper:
         else:
             self._inner.register_command(macro.alias, macro.cmd, desc=macro.cmd_desc)
 
-        name: str = macro_config.get_name().split(maxsplit=1)[0]
-        self._inner.register_mux_command("SET_GCODE_VARIABLE", "MACRO", name, macro.cmd_SET_GCODE_VARIABLE,
+        self._inner.register_mux_command("SET_GCODE_VARIABLE", "MACRO", macro.name, macro.cmd_SET_GCODE_VARIABLE,
                                          desc="Set the value of a G-Code macro variable")
 
-        self.printer.objects[f'gcode_macro {macro.alias}'] = macro
+        self.printer.objects[f'gcode_macro {macro.name}'] = macro
         self._registry[macro.alias] = macro
 
     def remove_macro(self, macro_name: str):
         macro = self.get_macro(macro_name)
-        key = f'gcode_macro {macro.alias}'
+        key = f'gcode_macro {macro.name}'
 
         # remove variable access
         if 'SET_GCODE_VARIABLE' in self._inner.mux_commands:
-            del self._inner.mux_commands['SET_GCODE_VARIABLE'][name]
+            del self._inner.mux_commands['SET_GCODE_VARIABLE'][macro.name]
 
         # remove gcode
         if macro.alias in self._inner.ready_gcode_handlers:
