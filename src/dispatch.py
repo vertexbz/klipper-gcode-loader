@@ -50,7 +50,7 @@ class GCodeDispatchHelper:
 
         # remove variable access
         if 'SET_GCODE_VARIABLE' in self._inner.mux_commands:
-            del self._inner.mux_commands['SET_GCODE_VARIABLE'][macro.name]
+            del self._inner.mux_commands['SET_GCODE_VARIABLE'][1][macro.name]
 
         # remove gcode
         if macro.alias in self._inner.ready_gcode_handlers:
