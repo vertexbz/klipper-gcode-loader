@@ -19,8 +19,9 @@ def full_gcode_iterator(reader: GCodeIterator, helper: GCodeDispatchHelper, unin
 
 
 def full_script_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None,
-                         name: str = 'Custom script'):
-    return WithVirtualFileIterator(name, full_gcode_iterator(GCodeStringReader(script), helper, uninterrupted_macros))
+                         name: str = 'Custom script', size: int = 0):
+    return WithVirtualFileIterator(name, full_gcode_iterator(GCodeStringReader(script), helper, uninterrupted_macros),
+                                   size=size)
 
 
 def full_file_iterator(file: GCodeFile, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None):

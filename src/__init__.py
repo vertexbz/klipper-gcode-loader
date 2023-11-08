@@ -277,7 +277,8 @@ class GCodeLoader(VirtualSDCardInterface):
                 line,
                 self.helper,
                 uninterrupted_macros=self.uninterrupted,
-                name=cmd
+                name=cmd,
+                size=len(line)
             )
             self.helper.respond_raw(f"File opened: {self.current_file.name} Size: {self.current_file.size}")
             self.helper.respond_raw("File selected")
