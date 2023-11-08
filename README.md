@@ -56,13 +56,13 @@ using `NAME=...` parameter.
 
 ### `PRINT_FROM_MACRO`
 
-With `PRINT_FROM_MACRO MACRO_NAME PARAMS...` you can run your custom macro as print, pause and cancel it.
+With `PRINT_FROM_MACRO MACRO=NAME PARAMS...` you can run your custom macro as print, pause and cancel it.
 
 ```
 [gcode_macro MAX_FLOW_CALIB]
 gcode:
     {% if printer.gcode_loader is defined and not printer.gcode_loader.is_virtual %}
-        PRINT_FROM_MACRO MAX_FLOW_CALIB {rawparams}
+        PRINT_FROM_MACRO MACRO=MAX_FLOW_CALIB {rawparams}
     {% else %}
         PRINT_START ...
         G-CODE...

@@ -4,6 +4,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 from __future__ import annotations
+import re
 from typing import TYPE_CHECKING
 from typing import Optional
 import logging
@@ -192,11 +193,13 @@ class GCodeLoader(VirtualSDCardInterface):
 
         gcmd.respond_info("Reload complete")
 
+    strip_macro_param = re.compile(r'^\s*MACRO\s*=\*', re.IGNORECASE)
+
     def cmd_PRINT_FROM_MACRO(self, gcmd: GCodeCommand):
         if self.work_timer is not None:
             raise CommandError("Printer busy")
         self._reset_file()
-        self._load_macro(gcmd.get_raw_command_parameters())
+        self._load_macro(self.strip_macro_param.sub('', gcmd.get_raw_command_parameters()))
         self.do_resume()
 
     def get_file_position(self):
@@ -268,7 +271,6 @@ class GCodeLoader(VirtualSDCardInterface):
             raise FileNotFoundError("Unable to open file")
 
     def _load_macro(self, line: str):
-        line = line.strip().lstrip('= \t')
         cmd = line.split(maxsplit=1)[0]
         try:
             self.current_file = full_script_iterator(
