@@ -4,13 +4,16 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional
-import os, logging
-
+from typing import TYPE_CHECKING
+from typing import Optional
+import logging
+import os
 from gcode import CommandError
 from .mock.printer_config import PrinterConfig
 from .interfaces.loader import VirtualSDCardInterface
 from .iterator import full_file_iterator
+from .iterator import full_script_iterator
+from .iterator import WithVirtualFileIterator
 from .locator import GCodeLocator
 from .macro import Macro
 from .macro import PrinterMacro
@@ -26,12 +29,12 @@ if TYPE_CHECKING:
     from extras.print_stats import PrintStats
     from extras.gcode_macro import TemplateWrapper
     from .file import GCodeFile
-    from .iterator import FileIterator
+    from .iterator import GCodeFileIterator
 
 
 class GCodeLoader(VirtualSDCardInterface):
     locator: GCodeLocator
-    current_file: Optional[FileIterator]
+    current_file: Optional[GCodeFileIterator]
     print_stats: PrintStats
     reactor: Reactor
     must_pause_work: bool
@@ -54,7 +57,8 @@ class GCodeLoader(VirtualSDCardInterface):
 
         # Work timer
         self.reactor = self.helper.printer.get_reactor()
-        self.must_pause_work = self.cmd_from_sd = False
+        self.must_pause_work = False
+        self.cmd_from_sd = False
         self.work_timer = None
 
         # Error handling
@@ -76,6 +80,8 @@ class GCodeLoader(VirtualSDCardInterface):
                                     desc=self.cmd_SDCARD_PRINT_FILE_help)
         self.gcode.register_command('MACRO_RELOAD', self.cmd_MACRO_RELOAD,
                                     desc="Reloads macros from config files")
+        self.gcode.register_command('PRINT_FROM_MACRO', self.cmd_PRINT_FROM_MACRO,
+                                    desc="Runs macro as a print")
 
     def stats(self, _):
         if self.work_timer is None:
@@ -88,12 +94,12 @@ class GCodeLoader(VirtualSDCardInterface):
         try:
             return [(f.name, f.size) for f in self.locator.get_file_list(check_subdirs)]
         except BaseException:
-            logging.exception("virtual_sdcard get_file_list")
+            logging.exception("gcode_loader get_file_list")
             raise CommandError("Unable to get file list")
 
     # G-Code commands
     def _cmd_error(self, gcmd: GCodeCommand):
-        raise CommandError("SD write not supported")
+        raise CommandError("write not supported")
 
     cmd_SDCARD_RESET_FILE_help = "Clears a loaded SD File. Stops the print if necessary"
 
@@ -106,10 +112,10 @@ class GCodeLoader(VirtualSDCardInterface):
 
     def cmd_SDCARD_PRINT_FILE(self, gcmd: GCodeCommand):
         if self.work_timer is not None:
-            raise CommandError("SD busy")
+            raise CommandError("Printer busy")
         self._reset_file()
         filename = gcmd.get("FILENAME")
-        self._load_file(gcmd, filename, check_subdirs=True)
+        self._load_file(filename, check_subdirs=True)
         self.do_resume()
 
     def cmd_M20(self, gcmd: GCodeCommand):
@@ -127,10 +133,10 @@ class GCodeLoader(VirtualSDCardInterface):
     def cmd_M23(self, gcmd: GCodeCommand):
         # Select SD file
         if self.work_timer is not None:
-            raise CommandError("SD busy")
+            raise CommandError("Printer busy")
         self._reset_file()
         filename = gcmd.get_raw_command_parameters().strip()
-        self._load_file(gcmd, filename)
+        self._load_file(filename)
 
     def cmd_M24(self, _: GCodeCommand):
         # Start/resume SD print
@@ -143,7 +149,7 @@ class GCodeLoader(VirtualSDCardInterface):
     def cmd_M26(self, gcmd: GCodeCommand):
         # Set SD position
         if self.work_timer is not None:
-            raise CommandError("SD busy")
+            raise CommandError("Printer busy")
 
         if self.current_file is None:
             raise CommandError("no file loaded")
@@ -186,6 +192,13 @@ class GCodeLoader(VirtualSDCardInterface):
 
         gcmd.respond_info("Reload complete")
 
+    def cmd_PRINT_FROM_MACRO(self, gcmd: GCodeCommand):
+        if self.work_timer is not None:
+            raise CommandError("Printer busy")
+        self._reset_file()
+        self._load_macro(gcmd.get_raw_command_parameters())
+        self.do_resume()
+
     def get_file_position(self):
         return self.current_file.pos if self.current_file else 0
 
@@ -202,6 +215,7 @@ class GCodeLoader(VirtualSDCardInterface):
             'file_path': self.file_path(),
             'progress': self.progress(),
             'is_active': self.is_active(),
+            'is_virtual': isinstance(self.current_file, WithVirtualFileIterator),
             'file_position': self.current_file.pos if self.current_file else 0,
             'file_size': self.current_file.size if self.current_file else 0,
         }
@@ -228,7 +242,7 @@ class GCodeLoader(VirtualSDCardInterface):
 
     def do_resume(self):
         if self.work_timer is not None:
-            raise CommandError("SD busy")
+            raise CommandError("Printer busy")
         self.must_pause_work = False
         self.work_timer = self.reactor.register_timer(self._work_handler, self.reactor.NOW)
 
@@ -239,18 +253,35 @@ class GCodeLoader(VirtualSDCardInterface):
             self.current_file = None
             self.print_stats.note_cancel()
 
-    def _load_file(self, gcmd, filename, check_subdirs=False):
+    def _load_file(self, filename: str, check_subdirs=False):
         try:
             self.current_file = full_file_iterator(
                 self.locator.load_file(filename, check_subdirs),
                 self.helper,
                 uninterrupted_macros=self.uninterrupted
             )
-            gcmd.respond_raw("File opened:%s Size:%d" % (self.current_file.name, self.current_file.size))
-            gcmd.respond_raw("File selected")
+            self.helper.respond_raw(f"File opened: {self.current_file.name} Size: {self.current_file.size}")
+            self.helper.respond_raw("File selected")
             self.print_stats.set_current_file(filename)
         except BaseException:
-            logging.exception("virtual_sdcard file open")
+            logging.exception("gcode_loader file open")
+            raise FileNotFoundError("Unable to open file")
+
+    def _load_macro(self, line: str):
+        line = line.strip()
+        cmd = line.split(maxsplit=1)[0]
+        try:
+            self.current_file = full_script_iterator(
+                line,
+                self.helper,
+                uninterrupted_macros=self.uninterrupted,
+                name=cmd
+            )
+            self.helper.respond_raw(f"File opened: {self.current_file.name} Size: {self.current_file.size}")
+            self.helper.respond_raw("File selected")
+            self.print_stats.set_current_file(cmd)
+        except BaseException:
+            logging.exception("gcode_loader file open")
             raise FileNotFoundError("Unable to open file")
 
     def _reset_file(self):
@@ -270,7 +301,7 @@ class GCodeLoader(VirtualSDCardInterface):
                     message += f'\nUpcoming: {repr(next(self.current_file))}'
                 logging.info(message)
             except BaseException:
-                logging.exception("virtual_sdcard shutdown read")
+                logging.exception("gcode_loader shutdown read")
 
     def _work_handler(self, _):
         logging.info("Starting SD card print (position %d)", self.current_file.pos)
@@ -292,10 +323,10 @@ class GCodeLoader(VirtualSDCardInterface):
                 self.current_file.close()
                 self.current_file = None
                 logging.info("Finished SD card print")
-                self.gcode.respond_raw("Done printing file")
+                self.helper.respond_raw("Done printing file")
                 break
             except BaseException:
-                logging.exception("virtual_sdcard read")
+                logging.exception("gcode_loader read")
                 break
 
             # Pause if any other request is pending in the gcode class
@@ -314,10 +345,10 @@ class GCodeLoader(VirtualSDCardInterface):
                 try:
                     self.gcode.run_script(self.on_error_gcode.render())
                 except BaseException:
-                    logging.exception("virtual_sdcard on_error")
+                    logging.exception("gcode_loader on_error")
                 break
             except BaseException:
-                logging.exception(f'virtual_sdcard dispatch, stacktrace {repr(line)}')
+                logging.exception(f'gcode_loader dispatch, stacktrace {repr(line)}')
                 break
 
             self.cmd_from_sd = False

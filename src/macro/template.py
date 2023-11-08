@@ -14,8 +14,6 @@ from ..interfaces.macro import RequiredMacroContextKeys
 if TYPE_CHECKING:
     from ..dispatch import GCodeDispatchHelper
 
-Jinja = jinja2.Environment('{%', '%}', '{', '}')
-
 
 class MacroTemplate(MacroTemplateInterface):
     @classmethod
@@ -25,7 +23,7 @@ class MacroTemplate(MacroTemplateInterface):
     def __init__(self, helper: GCodeDispatchHelper, template: str):
         self.helper = helper
         self.hash = MacroTemplate.hash_source(template)
-        self.template: jinja2.Template = Jinja.from_string(template)
+        self.template: jinja2.Template = helper.gcode_macro.jinja.from_string(template)
 
     def render(self, context: Optional[dict] = None) -> str:
         if context is None:

@@ -1,12 +1,13 @@
 from __future__ import annotations
 from typing import Optional
 from typing import TYPE_CHECKING
-from .base import GCodeIterator, GCodeProxyIterator
+from .base import GCodeIterator, GCodeFileIterator
 from .comment_filter import CommentFilter
 from .file_reader import GCodeFileReader
 from .recursive_iterator import RecursiveIterator
 from .string_reader import GCodeStringReader, GCodeMacroReader
-from .file_iterator import FileIterator
+from .with_file_iterator import WithFileIterator
+from .with_virtual_file_iterator import WithVirtualFileIterator
 
 if TYPE_CHECKING:
     from ..file import GCodeFile
@@ -17,5 +18,10 @@ def full_gcode_iterator(reader: GCodeIterator, helper: GCodeDispatchHelper, unin
     return RecursiveIterator(CommentFilter(reader), helper, uninterrupted_macros=uninterrupted)
 
 
+def full_script_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None,
+                         name: str = 'Custom script'):
+    return WithVirtualFileIterator(name, full_gcode_iterator(GCodeStringReader(script), helper, uninterrupted_macros))
+
+
 def full_file_iterator(file: GCodeFile, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None):
-    return FileIterator(file, full_gcode_iterator(GCodeFileReader(file), helper, uninterrupted_macros))
+    return WithFileIterator(file, full_gcode_iterator(GCodeFileReader(file), helper, uninterrupted_macros))

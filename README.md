@@ -1,8 +1,7 @@
 # klipper-gcode-loader
 
-`virtual_sdcard` alternative providing ability to pause and cancel print
-during macro execution (you still have to wait for blocking commands though)
-and adds error stack trace
+`virtual_sdcard` alternative providing ability to pause and cancel print during macro execution, run macros as prints
+and reload macros without restart
 
 ## Installation
 
@@ -54,6 +53,22 @@ G-Code command `MACRO_RELOAD [VARIABLES=1] [NAME=<macro name>]` re-reads configu
 macros. By default, it also adds new variables, to disable this behavior add `VARIABLES=0` parameter, or to replace
 current macro variables with those from file use `VARIABLES=2`. You can also restrict reload by macro/template name
 using `NAME=...` parameter.
+
+### `PRINT_FROM_MACRO`
+
+With `PRINT_FROM_MACRO MACRO_NAME PARAMS...` you can run your custom macro as print, pause and cancel it.
+
+```
+[gcode_macro MAX_FLOW_CALIB]
+gcode:
+    {% if printer.gcode_loader is defined and not printer.gcode_loader.is_virtual %}
+        PRINT_FROM_MACRO MAX_FLOW_CALIB {rawparams}
+    {% else %}
+        PRINT_START ...
+        G-CODE...
+        PRINT_END
+    {% endif %}
+```
 
 ## TODO
 

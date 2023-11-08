@@ -5,12 +5,12 @@ import os
 
 class GCodeFile:
     def __init__(self, basedir: str, name: str):
-        self.basedir = basedir
+        self._basedir = basedir
         self.name = name
 
     @cached_property
     def path(self):
-        return os.path.join(self.basedir, self.name)
+        return os.path.join(self._basedir, self.name)
 
     @cached_property
     def size(self):

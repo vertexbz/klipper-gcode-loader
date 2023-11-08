@@ -1,4 +1,5 @@
 from __future__ import annotations
+import jinja2
 import logging
 import traceback
 from typing import Any
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 class PrinterMacro(PrinterGCodeMacroInterface):
     def __init__(self, helper: GCodeDispatchHelper):
         self.helper = helper
+        self.jinja = jinja2.Environment('{%', '%}', '{', '}')
 
     def load_template(self, config, option, default=None) -> MacroTemplate:
         name = "%s:%s" % (config.get_name(), option)

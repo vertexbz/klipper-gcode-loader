@@ -126,6 +126,9 @@ class GCodeDispatchHelper:
     def respond_info(self, msg: str):
         self._inner.respond_info(msg)
 
+    def respond_raw(self, msg: str):
+        self._inner.respond_raw(msg)
+
     def _action_emergency_stop(self, msg: str = "action_emergency_stop"):
         self.printer.invoke_shutdown(f"Shutdown due to {msg}")
         return ''

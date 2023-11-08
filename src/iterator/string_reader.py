@@ -33,7 +33,7 @@ class GCodeStringReader(GCodeIterator):
         return self._pos
 
     def seek(self, pos: int):
-        pass # todo
+        pass  # todo
 
 
 class GCodeMacroReader(GCodeStringReader):
@@ -41,7 +41,6 @@ class GCodeMacroReader(GCodeStringReader):
         super().__init__(data)
         self.macro = macro
         self.parent = parent
-
 
     def _create_line(self, line: str) -> GCodeLine:
         return CompiledGcodeLine(self.macro, self.no, line, self.parent)
