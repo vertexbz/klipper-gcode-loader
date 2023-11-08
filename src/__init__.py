@@ -268,7 +268,7 @@ class GCodeLoader(VirtualSDCardInterface):
             raise FileNotFoundError("Unable to open file")
 
     def _load_macro(self, line: str):
-        line = line.strip()
+        line = line.strip().lstrip('= \t')
         cmd = line.split(maxsplit=1)[0]
         try:
             self.current_file = full_script_iterator(
