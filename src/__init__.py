@@ -193,7 +193,7 @@ class GCodeLoader(VirtualSDCardInterface):
 
         gcmd.respond_info("Reload complete")
 
-    strip_macro_param = re.compile(r'^\s*MACRO\s*=\*', re.IGNORECASE)
+    strip_macro_param = re.compile(r'^\s*MACRO\s*=\s*', re.IGNORECASE)
 
     def cmd_PRINT_FROM_MACRO(self, gcmd: GCodeCommand):
         if self.work_timer is not None:
