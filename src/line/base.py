@@ -1,18 +1,12 @@
 from __future__ import annotations
 from functools import cached_property
 import re
+import shlex
 from typing import Optional
 import copy
 from ..macro.utils import is_classic_gcode
 
-BLANK_SPLIT_REGEX = re.compile('\s+')
 CLASSIC_SPLIT_REGEX = re.compile('([A-Z*/])')
-
-
-def _fix_param(param: str) -> str:
-    if param.startswith('"') and param.endswith('"') or param.startswith('"') and param.endswith('"'):
-        return param[1:-1]
-    return param
 
 
 class GCodeLine:
@@ -66,14 +60,11 @@ class GCodeLine:
         if len(rawparams) == 0:
             return {}
 
-        # TODO quoted strings support
-        parts = BLANK_SPLIT_REGEX.split(rawparams)
-
         mapper = lambda s: s.split('=', maxsplit=1)
         if self.is_classic:
-            mapper = lambda s: CLASSIC_SPLIT_REGEX.split(s)[1:]
+            mapper = lambda s: [s[0], s[1:]]
 
-        return {s[0].upper(): _fix_param(s[1].strip()) for s in map(mapper, parts)}
+        return {s[0].upper(): s[1] for s in map(mapper, shlex.split(rawparams))}
 
     @cached_property
     def rawparams(self):
@@ -112,9 +103,9 @@ if __name__ == '__main__':
         assert line.cmd in ('M117', 'M118'), f"{line.cmd} in ('M117', 'M118')"
         assert line.rawparams == 'asd goes here', f"{line.rawparams} == 'asd goes here'"
 
-    line = GCodeLine('MY_MACRO A=6 param=8 foo="baz"')
+    line = GCodeLine('MY_MACRO A=6 param=8 foo=\'"baz"\'')
     assert line.cmd == 'MY_MACRO', f"{line.cmd} == MY_MACRO"
-    assert line.rawparams == 'A=6 param=8 foo="baz"', f"{line.rawparams} == 'A=6 param=8 foo=\"baz\"'"
+    assert line.rawparams == 'A=6 param=8 foo=\'"baz"\'', f"{line.rawparams} == 'A=6 param=8 foo='\"baz\"''"
     assert len(line.params) == 3, f"{len(line.params)} == 0; {line.params}"
     assert line.params['A'] == '6', f"{line.params['A']} == '6'"
     assert line.params['PARAM'] == '8', f"{line.params['PARAM']} == '8'"
