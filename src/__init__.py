@@ -229,7 +229,7 @@ class GCodeLoader(VirtualSDCardInterface):
         return None
 
     def progress(self):
-        if self.current_file:
+        if self.current_file and self.current_file.size > 0:
             return float(self.current_file.pos) / self.current_file.size
         else:
             return 0.
@@ -278,7 +278,6 @@ class GCodeLoader(VirtualSDCardInterface):
                 self.helper,
                 uninterrupted_macros=self.uninterrupted,
                 name=cmd,
-                size=len(line)
             )
             self.helper.respond_raw(f"File opened: {self.current_file.name} Size: {self.current_file.size}")
             self.helper.respond_raw("File selected")
