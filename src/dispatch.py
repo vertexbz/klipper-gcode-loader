@@ -8,14 +8,19 @@ from typing import Union
 from configfile import ConfigWrapper
 from configfile import error as ConfigError
 from extras.gcode_macro import GetStatusWrapper
-from .interfaces.macro import MacroInterface
-from .interfaces.macro import RequiredMacroContextKeys
+from gcode import CommandError
+from .iterator import full_macro_iterator
+from .iterator import full_script_iterator
+from .mock.gcode_command import GCodeCommand
 from .macro import Macro
 
 if TYPE_CHECKING:
     from gcode import GCodeDispatch
     from klippy import Printer
     from .macro import PrinterMacro
+    from .line import GCodeLine
+    from .interfaces.macro import MacroInterface
+    from .interfaces.macro import RequiredMacroContextKeys
 
 
 class GCodeDispatchHelper:
@@ -68,7 +73,9 @@ class GCodeDispatchHelper:
         if key in self.printer.objects:
             del self.printer.objects[key]
 
-        self.respond_info(f"Removed {macro.alias}")
+        del self._registry[macro_name]
+
+        self.respond_info(f"Removed {macro_name}")
 
     def rename_command(self, old_name: str, new_name: str, renaming_existing: bool = False) -> bool:
         if old_name == new_name:
@@ -111,8 +118,55 @@ class GCodeDispatchHelper:
     def get_macros(self):
         return self._registry.keys()
 
-    def run_script_atomic(self, script):
-        return self._inner.run_script_from_command(script)
+    def run_script_from_command(self, script: str, name: Optional[str] = None):
+        iterator = full_script_iterator(script, self) if name is None else full_macro_iterator(name, script, self)
+        try:
+            for line in iterator:
+                self.run_line(line, False)
+        finally:
+            iterator.close()
+
+    # top level run
+    def run_script_line(self, line: GCodeLine):
+        with self._inner.mutex:
+            self.run_line(line, False)
+
+    # top level run
+    def run_script(self, script: str):
+        with self._inner.mutex:
+            iterator = full_script_iterator(script, self)
+            try:
+                for line in iterator:
+                    self.run_line(line, False)
+            finally:
+                iterator.close()
+
+    def run_line(self, line: GCodeLine, need_ack: bool = False):
+        gcmd = GCodeCommand(self, line, need_ack)
+        handler = self._inner.gcode_handlers.get(gcmd.get_command(), None)
+        try:
+            if handler is None:
+                self._line_cmd_default(line, gcmd)
+            else:
+                handler(gcmd)
+        except CommandError as e:
+            self.printer.send_event("gcode:command_error")
+            self.respond_info(f'{str(e)}. Backtrace:\n{repr(line)}')
+            if not need_ack:
+                raise
+        except BaseException:
+            msg = f'Internal error on command:"{gcmd.get_command()}"'
+            logging.exception(msg)
+            self.respond_info(f'{msg}. Backtrace:\n{repr(line)}')
+            self.printer.invoke_shutdown(msg)
+            if not need_ack:
+                raise
+        gcmd.ack()
+
+    def _line_cmd_default(self, line: GCodeLine, gcmd: GCodeCommand):
+        gcmd.respond_info = lambda s: None
+        self._inner.cmd_default(gcmd)
+        self.respond_info(f'Unknown command: "{gcmd.get_command()}". Backtrace:\n{repr(line)}')
 
     def create_template_context(self, eventtime=None) -> dict[Union[RequiredMacroContextKeys, str], Any]:
         return {
@@ -138,7 +192,7 @@ class GCodeDispatchHelper:
         return ''
 
     def _action_raise_error(self, msg: str):
-        raise self.printer.command_error(msg)  # TODO ensure stack is added, configured debug mode
+        raise self.printer.command_error(msg)
 
     def _action_call_remote_method(self, method, **kwargs):
         webhooks = self.printer.lookup_object('webhooks')

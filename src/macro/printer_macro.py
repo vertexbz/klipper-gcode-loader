@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 import jinja2
 import logging
 import traceback
@@ -19,16 +20,20 @@ class PrinterMacro(PrinterGCodeMacroInterface):
         self.helper = helper
         self.jinja = jinja2.Environment('{%', '%}', '{', '}')
 
-    def load_template(self, config, option, default=None) -> MacroTemplate:
-        name = "%s:%s" % (config.get_name(), option)
+    def load_template(self, config, option, default: Optional[Any] = None, name: Optional[str] = None) -> MacroTemplate:
+        full_name = "%s:%s" % (config.get_name(), option)
+        if name is None:
+            name = full_name
+
         if default is None:
             script = config.get(option)
         else:
             script = config.get(option, default)
+
         try:
-            return MacroTemplate(self.helper, script)
+            return MacroTemplate(self.helper, script, name=name)
         except Exception as e:
-            msg = "Error loading template '%s': %s" % (name, traceback.format_exception_only(type(e), e)[-1])
+            msg = "Error loading template '%s': %s" % (full_name, traceback.format_exception_only(type(e), e)[-1])
             logging.exception(msg)
             raise ConfigError(msg)
 

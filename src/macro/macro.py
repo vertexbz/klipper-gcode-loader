@@ -10,12 +10,12 @@ from .utils import is_classic_gcode
 from .utils import load_variables
 from .utils import parse_value
 from ..interfaces.macro import MacroInterface
-from ..interfaces.macro import PrinterGCodeMacroInterface
 
 if TYPE_CHECKING:
     from gcode import GCodeCommand
     from ..dispatch import GCodeDispatchHelper
     from .template import MacroTemplate
+    from .printer_macro import PrinterMacro
 
 
 class VariableMode(Enum):
@@ -34,7 +34,7 @@ class Macro(MacroInterface):
     variables: dict[str, Any]
     in_script: bool
 
-    def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, printer_macro: PrinterGCodeMacroInterface):
+    def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, printer_macro: PrinterMacro):
         name: str = config.get_name().split(maxsplit=1)[1]
         if ' ' in name:
             raise ConfigError(f"Name of section '{name}' contains illegal whitespace")
@@ -42,7 +42,7 @@ class Macro(MacroInterface):
         self.helper = helper
         self.name = name
         self.alias = name.upper()
-        self.template = printer_macro.load_template(config, 'gcode')
+        self.template = printer_macro.load_template(config, 'gcode', name=self.alias)
         self.rename_existing = config.get("rename_existing", None)
         self.cmd_desc = config.get("description", "G-Code macro")
         self.variables = load_variables(config)
@@ -61,7 +61,7 @@ class Macro(MacroInterface):
     def execute(self, params: dict, rawparams: str):
         self.in_script = True
         try:
-            self.helper.run_script_atomic(self.render(params, rawparams))
+            self.helper.run_script_from_command(self.render(params, rawparams), name=self.alias)
         finally:
             self.in_script = False
 

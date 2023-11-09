@@ -18,7 +18,15 @@ def full_gcode_iterator(reader: GCodeIterator, helper: GCodeDispatchHelper, unin
     return RecursiveIterator(CommentFilter(reader), helper, uninterrupted_macros=uninterrupted)
 
 
-def full_script_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None,
+def full_macro_iterator(name: str, script: str, helper: GCodeDispatchHelper, uninterrupted: Optional[set[str]] = None):
+    return RecursiveIterator(CommentFilter(GCodeMacroReader(name, script)), helper, uninterrupted_macros=uninterrupted)
+
+
+def full_script_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted: Optional[set[str]] = None):
+    return RecursiveIterator(CommentFilter(GCodeStringReader(script)), helper, uninterrupted_macros=uninterrupted)
+
+
+def full_virtual_file_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None,
                          name: str = 'Custom script', size: int = 0):
     return WithVirtualFileIterator(name, full_gcode_iterator(GCodeStringReader(script), helper, uninterrupted_macros),
                                    size=size)

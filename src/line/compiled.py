@@ -11,7 +11,7 @@ class CompiledGcodeLine(GCodeLine):
         self.parent = parent
 
     def __repr__(self):
-        current = f'[{self.macro}:{self.line}: {self.data}]'
+        current = f'  - {self.macro}:{self.line}: {self.data}'
         if self.parent:
-            return f'{str(self.parent)} > {current}'
+            return f'{str(self.parent)}\n{current}'
         return current

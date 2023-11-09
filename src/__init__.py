@@ -13,7 +13,7 @@ from gcode import CommandError
 from .mock.printer_config import PrinterConfig
 from .interfaces.loader import VirtualSDCardInterface
 from .iterator import full_file_iterator
-from .iterator import full_script_iterator
+from .iterator import full_virtual_file_iterator
 from .iterator import WithVirtualFileIterator
 from .locator import GCodeLocator
 from .macro import Macro
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from gcode import GCodeDispatch
     from extras.print_stats import PrintStats
     from extras.gcode_macro import TemplateWrapper
+    from webhooks import WebRequest
     from .file import GCodeFile
     from .iterator import GCodeFileIterator
 
@@ -256,6 +257,9 @@ class GCodeLoader(VirtualSDCardInterface):
             self.current_file = None
             self.print_stats.note_cancel()
 
+    def handle_webhook_script(self, web_request: WebRequest):
+        self.helper.run_script(web_request.get_str('script'))
+
     def _load_file(self, filename: str, check_subdirs=False):
         try:
             self.current_file = full_file_iterator(
@@ -273,7 +277,7 @@ class GCodeLoader(VirtualSDCardInterface):
     def _load_macro(self, line: str):
         cmd = line.split(maxsplit=1)[0]
         try:
-            self.current_file = full_script_iterator(
+            self.current_file = full_virtual_file_iterator(
                 line,
                 self.helper,
                 uninterrupted_macros=self.uninterrupted,
@@ -341,9 +345,9 @@ class GCodeLoader(VirtualSDCardInterface):
             self.cmd_from_sd = True
 
             try:
-                self.gcode.run_script(line.data)
+                self.helper.run_script_line(line)
             except CommandError as e:
-                error_message = f'{str(e)}, stacktrace {repr(line)}'
+                error_message = str(e)
                 try:
                     self.gcode.run_script(self.on_error_gcode.render())
                 except BaseException:
@@ -388,5 +392,8 @@ def load_config(config: ConfigWrapper):
 
     for section in config.get_prefix_sections('gcode_macro '):
         helper.load_macro(section)
+
+    webhooks = printer.lookup_object('webhooks')
+    webhooks._endpoints["gcode/script"] = extension.handle_webhook_script
 
     return extension

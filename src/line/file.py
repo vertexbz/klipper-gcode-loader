@@ -14,4 +14,4 @@ class GCodeFileLine(GCodeLine):
         self.offset = offset
 
     def __repr__(self):
-        return f'[{self.offset}: {self.data}]'
+        return f'  - {self.offset}: {self.data}'
