@@ -183,7 +183,7 @@ class GCodeLoader(VirtualSDCardInterface):
             if self.helper.has_macro(name):
                 self.helper.get_macro(name).update_config(macro_config, VariableMode(vars_mode), verbose=True)
             else:
-                self.helper.load_macro(macro_config)
+                self.helper.load_macro(macro_config, verbose=True)
 
         for name in self.helper.get_macros():
             if name_filter is not None and name != name_filter:
@@ -192,7 +192,7 @@ class GCodeLoader(VirtualSDCardInterface):
             if name not in config:
                 self.helper.remove_macro(name)
 
-        gcmd.respond_info("Reload complete")
+        self.helper.respond_info("Reload complete")
 
     strip_macro_param = re.compile(r'^\s*MACRO\s*=\s*', re.IGNORECASE)
 

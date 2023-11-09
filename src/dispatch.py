@@ -33,7 +33,7 @@ class GCodeDispatchHelper:
     def gcode_macro(self) -> PrinterMacro:
         return self.printer.lookup_object('gcode_macro')
 
-    def load_macro(self, macro_config: ConfigWrapper):
+    def load_macro(self, macro_config: ConfigWrapper, verbose: bool = False):
         macro = Macro(self, macro_config, self.gcode_macro)
         if macro.rename_existing is not None:
             def handle_connect():
@@ -49,6 +49,9 @@ class GCodeDispatchHelper:
 
         self.printer.objects[f'gcode_macro {macro.name}'] = macro
         self._registry[macro.alias] = macro
+
+        if verbose:
+            self.respond_info(f"Added {macro.alias}")
 
     def remove_macro(self, macro_name: str):
         macro = self.get_macro(macro_name)
@@ -192,12 +195,12 @@ class GCodeDispatchHelper:
         return ''
 
     def _action_raise_error(self, msg: str):
-        raise self.printer.command_error(msg)
+        raise CommandError(msg)
 
     def _action_call_remote_method(self, method, **kwargs):
         webhooks = self.printer.lookup_object('webhooks')
         try:
             webhooks.call_remote_method(method, **kwargs)
-        except self.printer.command_error:
+        except CommandError:
             logging.exception("Remote Call Error")
         return ''
