@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .gcode import GCode
+from .printer_gcode import GCode
 
 
 class Printer:

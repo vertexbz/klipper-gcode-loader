@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from ....gcode import GCodeCommand as BaseGCodeCommand
+from gcode import GCodeCommand as BaseGCodeCommand
 
 if TYPE_CHECKING:
     from ..line import GCodeLine
