@@ -163,6 +163,9 @@ class GCodeDispatchHelper:
     def respond_raw(self, msg: str):
         self._inner.respond_raw(msg)
 
+    def respond_error_message(self, msg: str):
+        self._inner.respond_raw('!! ' + msg)
+
     def _action_emergency_stop(self, msg: str = "action_emergency_stop"):
         self.printer.invoke_shutdown(f"Shutdown due to {msg}")
         return ''
@@ -185,29 +188,29 @@ class GCodeDispatchHelper:
     def _line_cmd_default(self, line: GCodeLine, gcmd: GCodeCommand):
         gcmd.respond_info = lambda s: None
         self._inner.cmd_default(gcmd)
-        self.respond_info(f'Unknown command: "{gcmd.get_command()}". Backtrace:\n{repr(line)}')
+        self.respond_error_message(f'Unknown command: "{gcmd.get_command()}". Backtrace:\n{repr(line)}')
 
     def _run_handler(self, handler: Callable[[], None]) -> None:
         try:
             handler()
         except CommandLineError as e:
             self.printer.send_event("gcode:command_error")
-            self.respond_info(f'{str(e)}. Backtrace:\n{repr(e.line)}')
+            self.respond_error_message(f'{str(e)}. Backtrace:\n{repr(e.line)}')
             raise e
         except LineError as e:
             msg = f'Internal error on command: "{e.line.cmd}"'
             logging.exception(msg)
-            self.respond_info(f'{msg}. Backtrace:\n{repr(e.line)}')
+            self.respond_error_message(f'{msg}. Backtrace:\n{repr(e.line)}')
             self.printer.invoke_shutdown(msg)
             raise e
         except CommandError as e:
             self.printer.send_event("gcode:command_error")
-            self.respond_info(str(e))
+            self.respond_error_message(str(e))
             raise e
         except BaseException as e:
             msg = f'Internal error on command'
             logging.exception(msg)
-            self.respond_info(msg)
+            self.respond_error_message(msg)
             self.printer.invoke_shutdown(msg)
             raise e
 
