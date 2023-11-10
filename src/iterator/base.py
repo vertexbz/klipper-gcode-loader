@@ -2,7 +2,6 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Iterator
 from typing import Optional
-
 from ..line import GCodeLine
 
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 from functools import cached_property
+from functools import partial
 import logging
 from typing import Any
+from typing import Callable
 from typing import Optional
 from typing import TYPE_CHECKING
 from typing import Union
@@ -11,6 +13,8 @@ from extras.gcode_macro import GetStatusWrapper
 from gcode import CommandError
 from .iterator import full_macro_iterator
 from .iterator import full_script_iterator
+from .line import CommandLineError
+from .line import LineError
 from .mock.gcode_command import GCodeCommand
 from .macro import Macro
 
@@ -19,6 +23,7 @@ if TYPE_CHECKING:
     from klippy import Printer
     from .macro import PrinterMacro
     from .line import GCodeLine
+    from .iterator import GCodeIterator
     from .interfaces.macro import MacroInterface
     from .interfaces.macro import RequiredMacroContextKeys
 
@@ -122,12 +127,12 @@ class GCodeDispatchHelper:
         return self._registry.keys()
 
     def run_script_from_command(self, script: str, name: Optional[str] = None):
-        iterator = full_script_iterator(script, self) if name is None else full_macro_iterator(name, script, self)
-        try:
-            for line in iterator:
-                self.run_line(line, False)
-        finally:
-            iterator.close()
+        if name is None:
+            iterator = full_script_iterator(script, self)
+        else:
+            iterator = full_macro_iterator(name, script, self)
+
+        self._run_handler(partial(self._run_iterator, iterator))
 
     # top level run
     def run_script_line(self, line: GCodeLine):
@@ -138,38 +143,10 @@ class GCodeDispatchHelper:
     def run_script(self, script: str):
         with self._inner.mutex:
             iterator = full_script_iterator(script, self)
-            try:
-                for line in iterator:
-                    self.run_line(line, False)
-            finally:
-                iterator.close()
+            self._run_handler(partial(self._run_iterator, iterator))
 
     def run_line(self, line: GCodeLine, need_ack: bool = False):
-        gcmd = GCodeCommand(self, line, need_ack)
-        handler = self._inner.gcode_handlers.get(gcmd.get_command(), None)
-        try:
-            if handler is None:
-                self._line_cmd_default(line, gcmd)
-            else:
-                handler(gcmd)
-        except CommandError as e:
-            self.printer.send_event("gcode:command_error")
-            self.respond_info(f'{str(e)}. Backtrace:\n{repr(line)}')
-            if not need_ack:
-                raise e
-        except BaseException as e:
-            msg = f'Internal error on command:"{gcmd.get_command()}"'
-            logging.exception(msg)
-            self.respond_info(f'{msg}. Backtrace:\n{repr(line)}')
-            self.printer.invoke_shutdown(msg)
-            if not need_ack:
-                raise e
-        gcmd.ack()
-
-    def _line_cmd_default(self, line: GCodeLine, gcmd: GCodeCommand):
-        gcmd.respond_info = lambda s: None
-        self._inner.cmd_default(gcmd)
-        self.respond_info(f'Unknown command: "{gcmd.get_command()}". Backtrace:\n{repr(line)}')
+        self._run_handler(partial(self._run_line, line, need_ack))
 
     def create_template_context(self, eventtime=None) -> dict[Union[RequiredMacroContextKeys, str], Any]:
         return {
@@ -204,3 +181,52 @@ class GCodeDispatchHelper:
         except CommandError:
             logging.exception("Remote Call Error")
         return ''
+
+    def _line_cmd_default(self, line: GCodeLine, gcmd: GCodeCommand):
+        gcmd.respond_info = lambda s: None
+        self._inner.cmd_default(gcmd)
+        self.respond_info(f'Unknown command: "{gcmd.get_command()}". Backtrace:\n{repr(line)}')
+
+    def _run_handler(self, handler: Callable[[], None]) -> None:
+        try:
+            handler()
+        except CommandLineError as e:
+            self.printer.send_event("gcode:command_error")
+            self.respond_info(f'{str(e)}. Backtrace:\n{repr(e.line)}')
+            raise e
+        except LineError as e:
+            msg = f'Internal error on command: "{e.line.cmd}"'
+            logging.exception(msg)
+            self.respond_info(f'{msg}. Backtrace:\n{repr(e.line)}')
+            self.printer.invoke_shutdown(msg)
+            raise e
+        except CommandError as e:
+            self.printer.send_event("gcode:command_error")
+            self.respond_info(str(e))
+            raise e
+        except BaseException as e:
+            msg = f'Internal error on command'
+            logging.exception(msg)
+            self.respond_info(msg)
+            self.printer.invoke_shutdown(msg)
+            raise e
+
+    def _run_line(self, line: GCodeLine, need_ack: bool = False):
+        gcmd = GCodeCommand(self, line, need_ack)
+        handler = self._inner.gcode_handlers.get(gcmd.get_command(), partial(self._line_cmd_default, line))
+        try:
+            handler(gcmd)
+        except CommandError as e:
+            if not need_ack:
+                raise CommandLineError(line, e)
+        except BaseException as e:
+            if not need_ack:
+                raise LineError(line, e)
+        gcmd.ack()
+
+    def _run_iterator(self, iterator: GCodeIterator):
+        try:
+            for line in iterator:
+                self._run_line(line, False)
+        finally:
+            iterator.close()
