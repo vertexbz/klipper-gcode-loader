@@ -31,6 +31,8 @@ class MacroTemplate(MacroTemplateInterface):
             context = self.create_template_context()
         try:
             return str(self.template.render(context))
+        except CommandError as e:
+            raise e
         except Exception as e:
             msg = "Error evaluating macro %s: %s" % (self.name, traceback.format_exception_only(type(e), e)[-1])
             logging.exception(msg)
