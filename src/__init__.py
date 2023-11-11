@@ -190,7 +190,7 @@ class GCodeLoader(VirtualSDCardInterface):
                 continue
 
             if name not in config:
-                self.helper.remove_macro(name)
+                self.helper.remove_macro(name, verbose=True)
 
         self.helper.respond_info("Reload complete")
 

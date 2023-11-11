@@ -58,7 +58,7 @@ class GCodeDispatchHelper:
         if verbose:
             self.respond_info(f"Added {macro.alias}")
 
-    def remove_macro(self, macro_name: str):
+    def remove_macro(self, macro_name: str, verbose: bool = False):
         macro = self.get_macro(macro_name)
         key = f'gcode_macro {macro.name}'
 
@@ -83,7 +83,8 @@ class GCodeDispatchHelper:
 
         del self._registry[macro_name]
 
-        self.respond_info(f"Removed {macro_name}")
+        if verbose:
+            self.respond_info(f"Removed {macro_name}")
 
     def rename_command(self, old_name: str, new_name: str, renaming_existing: bool = False) -> bool:
         if old_name == new_name:
