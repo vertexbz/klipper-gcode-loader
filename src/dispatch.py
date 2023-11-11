@@ -158,8 +158,8 @@ class GCodeDispatchHelper:
             'action_call_remote_method': self._action_call_remote_method,
         }
 
-    def respond_info(self, msg: str):
-        self._inner.respond_info(msg)
+    def respond_info(self, msg: str, log: bool = False):
+        self._inner.respond_info(msg, log=log)
 
     def respond_raw(self, msg: str):
         self._inner.respond_raw(msg)
