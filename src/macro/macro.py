@@ -71,7 +71,7 @@ class Macro(MacroInterface):
         self.variables = v
 
     def cmd(self, gcmd: GCodeCommand):
-        if self.in_script:  # TODO is not checked in iterators
+        if self.in_script:
             raise CommandError(f"Macro {self.alias} called recursively")
 
         self.execute(gcmd.get_command_parameters(), gcmd.get_raw_command_parameters())

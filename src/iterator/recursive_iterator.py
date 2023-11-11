@@ -39,6 +39,8 @@ class RecursiveIterator(GCodeProxyIterator):
         while True:
             line = self._get_next_line()
             if self.helper.has_macro(line.cmd):
+                if self._check_recursive_call(line.cmd):
+                    raise CommandLineError(line, f"Macro {line.cmd} called recursively")
                 macro = self.helper.get_macro(line.cmd)
                 try:
                     content = macro.render(line.params, line.rawparams)
@@ -56,3 +58,15 @@ class RecursiveIterator(GCodeProxyIterator):
     def close(self):
         super().close()
         self.nested = []
+
+    def _check_recursive_call(self, macro: str) -> bool:
+        top = self.top()
+        if isinstance(top, GCodeMacroReader) and top.macro == macro:
+            return True
+
+        for it in self.nested:
+            top = it.top()
+            if isinstance(top, GCodeMacroReader) and top.macro == macro:
+                return True
+
+        return False

@@ -70,7 +70,3 @@ gcode:
     {% endif %}
 ```
 
-## TODO
-
-- [ ] recursive call protection
-

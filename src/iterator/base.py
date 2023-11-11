@@ -12,6 +12,9 @@ class GCodeIterator(Iterator[GCodeLine]):
     def __init__(self):
         pass
 
+    def top(self):
+        return self
+
     def __iter__(self):
         return self
 
@@ -58,6 +61,9 @@ class GCodeProxyIterator(GCodeIterator):
     def __init__(self, inner: GCodeIterator):
         self.inner = inner
 
+    def top(self):
+        return self.inner.top()
+
     def __next__(self):
         return next(self.inner)
 
@@ -82,6 +88,9 @@ class GCodeFileProxyIterator(GCodeFileIterator):
         self.inner = inner
         self.current_line = None
         self.preread_line = None
+
+    def top(self):
+        return self.inner.top()
 
     def __next__(self):
         if self.preread_line is not None:
