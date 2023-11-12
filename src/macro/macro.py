@@ -2,7 +2,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 from typing import TYPE_CHECKING, Any
-from jinja2 import TemplateSyntaxError
+from jinja2.exceptions import TemplateError
 from configfile import ConfigWrapper
 from configfile import error as ConfigError
 from gcode import CommandError
@@ -102,7 +102,7 @@ class Macro(MacroInterface):
 
         try:
             new_template = self.helper.gcode_macro.load_template(macro_config, 'gcode')
-        except TemplateSyntaxError as e:
+        except (TemplateError, ConfigError) as e:
             if verbose:
                 self.helper.respond_info(f'Skipped {self.alias} - template error: {e}')
             return False
