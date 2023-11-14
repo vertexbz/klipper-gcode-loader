@@ -49,4 +49,4 @@ class GCodeLocator:
             if file.name.lower() == filename:
                 return file
 
-        raise FileNotFoundError()
+        raise FileNotFoundError(f'File: \'{filename}\' not found')

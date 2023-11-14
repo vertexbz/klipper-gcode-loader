@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 
 
 class GCodeLoader(VirtualSDCardInterface):
-    locator: GCodeLocator
     current_file: Optional[GCodeFileIterator]
     print_stats: PrintStats
     reactor: Reactor
@@ -45,10 +44,9 @@ class GCodeLoader(VirtualSDCardInterface):
     on_error_gcode: TemplateWrapper
     uninterrupted: set[str]
 
-    def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper, basedir: str):
+    def __init__(self, helper: GCodeDispatchHelper, config: ConfigWrapper):
         self.helper = helper
         self.uninterrupted = set(map(lambda m: m.upper(), config.getlist('uninterrupted', default=[])))
-        self.locator = GCodeLocator(os.path.normpath(os.path.expanduser(basedir)))
         self.current_file = None
 
         # Klipper setup
@@ -94,7 +92,7 @@ class GCodeLoader(VirtualSDCardInterface):
 
     def get_file_list(self, check_subdirs: bool = False):
         try:
-            return [(f.name, f.size) for f in self.locator.get_file_list(check_subdirs)]
+            return [(f.name, f.size) for f in self.helper.locator.get_file_list(check_subdirs)]
         except BaseException:
             logging.exception("gcode_loader get_file_list")
             raise CommandError("Unable to get file list")
@@ -263,7 +261,7 @@ class GCodeLoader(VirtualSDCardInterface):
     def _load_file(self, filename: str, check_subdirs=False):
         try:
             self.current_file = full_file_iterator(
-                self.locator.load_file(filename, check_subdirs),
+                self.helper.locator.load_file(filename, check_subdirs),
                 self.helper,
                 uninterrupted_macros=self.uninterrupted
             )
@@ -380,11 +378,13 @@ def load_config(config: ConfigWrapper):
 
     if printer.lookup_object('virtual_sdcard', None):
         raise config.error('virtual_sdcard already loaded')
-
-    helper = GCodeDispatchHelper(printer, printer.lookup_object('gcode'))
     basedir = config.getsection('virtual_sdcard').get('path')
 
-    extension = GCodeLoader(helper, config, basedir)
+    locator = GCodeLocator(os.path.normpath(os.path.expanduser(basedir)))
+
+    helper = GCodeDispatchHelper(printer, printer.lookup_object('gcode'), locator)
+
+    extension = GCodeLoader(helper, config)
 
     printer.objects['virtual_sdcard'] = extension
 

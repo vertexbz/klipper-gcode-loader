@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from gcode import CommandError
 from .comment_filter import CommentFilter
 from .string_reader import GCodeMacroReader
+from .file_reader import GCodeFileReader
 from .base import GCodeIterator
 from .base import GCodeProxyIterator
 from ..line import GCodeLine
@@ -18,8 +19,11 @@ class RecursiveIterator(GCodeProxyIterator):
     nested: list[GCodeIterator]
     uninterrupted_macros: set[str]
 
-    def __init__(self, inner: GCodeIterator, helper: GCodeDispatchHelper,
-                 uninterrupted_macros: Optional[set[str]] = None):
+    def __init__(
+        self, inner: GCodeIterator,
+        helper: GCodeDispatchHelper,
+        uninterrupted_macros: Optional[set[str]] = None
+    ):
         super().__init__(inner)
         self.helper = helper
         self.nested = []
@@ -38,7 +42,10 @@ class RecursiveIterator(GCodeProxyIterator):
     def __next__(self):
         while True:
             line = self._get_next_line()
-            if self.helper.has_macro(line.cmd):
+            if line.cmd == 'SDCARD_PRINT_FILE':
+                filename = line.params['FILENAME']
+                self.nested.insert(0, CommentFilter(GCodeFileReader(self.helper.locator.load_file(filename))))
+            elif self.helper.has_macro(line.cmd):
                 if self._check_recursive_call(line.cmd):
                     raise CommandLineError(line, f"Macro {line.cmd} called recursively")
                 macro = self.helper.get_macro(line.cmd)

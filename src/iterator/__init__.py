@@ -14,23 +14,37 @@ if TYPE_CHECKING:
     from ..dispatch import GCodeDispatchHelper
 
 
-def full_gcode_iterator(reader: GCodeIterator, helper: GCodeDispatchHelper, uninterrupted: Optional[set[str]] = None):
+def full_gcode_iterator(
+    reader: GCodeIterator, helper: GCodeDispatchHelper,
+    uninterrupted: Optional[set[str]] = None
+):
     return RecursiveIterator(CommentFilter(reader), helper, uninterrupted_macros=uninterrupted)
 
 
-def full_macro_iterator(name: str, script: str, helper: GCodeDispatchHelper, uninterrupted: Optional[set[str]] = None):
+def full_macro_iterator(
+    name: str, script: str, helper: GCodeDispatchHelper,
+    uninterrupted: Optional[set[str]] = None
+):
     return RecursiveIterator(CommentFilter(GCodeMacroReader(name, script)), helper, uninterrupted_macros=uninterrupted)
 
 
-def full_script_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted: Optional[set[str]] = None):
+def full_script_iterator(
+    script: str, helper: GCodeDispatchHelper,
+    uninterrupted: Optional[set[str]] = None
+):
     return RecursiveIterator(CommentFilter(GCodeStringReader(script)), helper, uninterrupted_macros=uninterrupted)
 
 
-def full_virtual_file_iterator(script: str, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None,
-                         name: str = 'Custom script', size: int = 0):
-    return WithVirtualFileIterator(name, full_gcode_iterator(GCodeStringReader(script), helper, uninterrupted_macros),
-                                   size=size)
+def full_virtual_file_iterator(
+    script: str, helper: GCodeDispatchHelper,
+    uninterrupted_macros: Optional[set[str]] = None,
+    name: str = 'Custom script', size: int = 0
+):
+    return WithVirtualFileIterator(name, full_gcode_iterator(GCodeStringReader(script), helper, uninterrupted_macros), size=size)
 
 
-def full_file_iterator(file: GCodeFile, helper: GCodeDispatchHelper, uninterrupted_macros: Optional[set[str]] = None):
+def full_file_iterator(
+    file: GCodeFile, helper: GCodeDispatchHelper,
+    uninterrupted_macros: Optional[set[str]] = None
+):
     return WithFileIterator(file, full_gcode_iterator(GCodeFileReader(file), helper, uninterrupted_macros))

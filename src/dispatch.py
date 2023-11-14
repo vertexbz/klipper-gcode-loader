@@ -23,16 +23,18 @@ if TYPE_CHECKING:
     from klippy import Printer
     from .macro import PrinterMacro
     from .line import GCodeLine
+    from .locator import GCodeLocator
     from .iterator import GCodeIterator
     from .interfaces.macro import MacroInterface
     from .interfaces.macro import RequiredMacroContextKeys
 
 
 class GCodeDispatchHelper:
-    def __init__(self, printer: Printer, inner: GCodeDispatch):
+    def __init__(self, printer: Printer, inner: GCodeDispatch, locator: GCodeLocator):
         self._registry: dict[str: MacroInterface] = {}
         self._inner = inner
         self.printer = printer
+        self.locator = locator
 
     @cached_property
     def gcode_macro(self) -> PrinterMacro:
