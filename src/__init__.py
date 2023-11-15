@@ -329,6 +329,13 @@ class GCodeLoader(VirtualSDCardInterface):
                 logging.info("Finished SD card print")
                 self.helper.respond_raw("Done printing file")
                 break
+            except CommandError as e:
+                error_message = str(e)
+                try:
+                    self.gcode.run_script(self.on_error_gcode.render())
+                except:
+                    logging.exception("gcode_loader read on_error")
+                break
             except:
                 logging.exception("gcode_loader read")
                 break
