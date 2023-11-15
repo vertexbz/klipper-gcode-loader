@@ -44,7 +44,10 @@ class RecursiveIterator(GCodeProxyIterator):
             line = self._get_next_line()
             if line.cmd == 'SDCARD_PRINT_FILE':
                 filename = line.params['FILENAME']
-                self.nested.insert(0, CommentFilter(GCodeFileReader(self.helper.locator.load_file(filename))))
+                try:
+                    self.nested.insert(0, CommentFilter(GCodeFileReader(self.helper.locator.load_file(filename))))
+                except (CommandError, FileNotFoundError) as e:
+                    raise CommandLineError(line, e)
             elif self.helper.has_macro(line.cmd):
                 if self._check_recursive_call(line.cmd):
                     raise CommandLineError(line, f"Macro {line.cmd} called recursively")
