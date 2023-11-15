@@ -93,7 +93,7 @@ class GCodeLoader(VirtualSDCardInterface):
     def get_file_list(self, check_subdirs: bool = False):
         try:
             return [(f.name, f.size) for f in self.helper.locator.get_file_list(check_subdirs)]
-        except BaseException:
+        except:
             logging.exception("gcode_loader get_file_list")
             raise CommandError("Unable to get file list")
 
@@ -268,7 +268,7 @@ class GCodeLoader(VirtualSDCardInterface):
             self.helper.respond_raw(f"File opened: {self.current_file.name} Size: {self.current_file.size}")
             self.helper.respond_raw("File selected")
             self.print_stats.set_current_file(filename)
-        except BaseException:
+        except:
             logging.exception("gcode_loader file open")
             raise FileNotFoundError("Unable to open file")
 
@@ -284,7 +284,7 @@ class GCodeLoader(VirtualSDCardInterface):
             self.helper.respond_raw(f"File opened: {self.current_file.name} Size: {self.current_file.size}")
             self.helper.respond_raw("File selected")
             self.print_stats.set_current_file(cmd)
-        except BaseException:
+        except:
             logging.exception("gcode_loader file open")
             raise FileNotFoundError("Unable to open file")
 
@@ -304,7 +304,7 @@ class GCodeLoader(VirtualSDCardInterface):
                 for _ in range(3):
                     message += f'\nUpcoming: {repr(next(self.current_file))}'
                 logging.info(message)
-            except BaseException:
+            except:
                 logging.exception("gcode_loader shutdown read")
 
     def _work_handler(self, _):
@@ -329,7 +329,7 @@ class GCodeLoader(VirtualSDCardInterface):
                 logging.info("Finished SD card print")
                 self.helper.respond_raw("Done printing file")
                 break
-            except BaseException:
+            except:
                 logging.exception("gcode_loader read")
                 break
 
@@ -348,10 +348,10 @@ class GCodeLoader(VirtualSDCardInterface):
                 error_message = str(e)
                 try:
                     self.gcode.run_script(self.on_error_gcode.render())
-                except BaseException:
+                except:
                     logging.exception("gcode_loader on_error")
                 break
-            except BaseException:
+            except:
                 logging.exception(f'gcode_loader dispatch, stacktrace {repr(line)}')
                 break
 

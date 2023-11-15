@@ -210,12 +210,12 @@ class GCodeDispatchHelper:
             self.printer.send_event("gcode:command_error")
             self.respond_error_message(str(e))
             raise e
-        except BaseException as e:
+        except:
             msg = f'Internal error on command'
             logging.exception(msg)
             self.respond_error_message(msg)
             self.printer.invoke_shutdown(msg)
-            raise e
+            raise
 
     def _run_line(self, line: GCodeLine, need_ack: bool = False):
         gcmd = GCodeCommand(self, line, need_ack)
@@ -225,7 +225,7 @@ class GCodeDispatchHelper:
         except CommandError as e:
             if not need_ack:
                 raise CommandLineError(line, e)
-        except BaseException as e:
+        except Exception as e:
             if not need_ack:
                 raise LineError(line, e)
         gcmd.ack()

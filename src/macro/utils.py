@@ -29,5 +29,5 @@ def is_classic_gcode(cmd: str) -> bool:
         cmd = cmd.upper()
         _ = float(cmd[1:])
         return cmd[0].isupper() and cmd[1].isdigit()
-    except BaseException:
+    except:
         return False
