@@ -343,8 +343,6 @@ class GCodeLoader(VirtualSDCardInterface):
                 logging.exception(f'gcode_loader worker')
 
             self.cmd_from_sd = False
-
-            # Wait for side loaded commands
             self.reactor.pause(self.reactor.NOW)
 
         if self.current_file:

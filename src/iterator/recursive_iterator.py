@@ -42,7 +42,7 @@ class RecursiveIterator(GCodeProxyIterator):
     def __next__(self):
         while True:
             line = self._get_next_line()
-            if line.cmd == 'SDCARD_PRINT_FILE':
+            if line.cmd == 'SDCARD_PRINT_FILE' and int(line.params.get('INCLUDE', 0)) > 0:
                 filename = line.params['FILENAME']
                 try:
                     self.nested.insert(0, CommentFilter(GCodeFileReader(self.helper.locator.load_file(filename, check_subdirs=True))))

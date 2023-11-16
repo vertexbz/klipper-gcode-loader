@@ -1,11 +1,13 @@
 from __future__ import annotations
+
+from abc import abstractmethod
 from typing import Optional
 from .base import GCodeIterator
 
 from ..line import GCodeLine, CompiledGcodeLine
 
 
-class GCodeStringReader(GCodeIterator):
+class BaseGCodeStringReader(GCodeIterator):
     def __init__(self, data: str):
         self.data = data
         self.lines = data.split('\n')
@@ -22,8 +24,9 @@ class GCodeStringReader(GCodeIterator):
         except IndexError:
             raise StopIteration()
 
+    @abstractmethod
     def _create_line(self, line: str) -> GCodeLine:
-        return GCodeLine(line)
+        pass
 
     def close(self):
         self.lines = []
@@ -36,7 +39,12 @@ class GCodeStringReader(GCodeIterator):
         pass  # todo
 
 
-class GCodeMacroReader(GCodeStringReader):
+class GCodeStringReader(BaseGCodeStringReader):
+    def _create_line(self, line: str) -> GCodeLine:
+        return GCodeLine(line)
+
+
+class GCodeMacroReader(BaseGCodeStringReader):
     def __init__(self, macro: str, data: str, parent: Optional[GCodeLine] = None):
         super().__init__(data)
         self.macro = macro
