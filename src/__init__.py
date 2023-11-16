@@ -314,14 +314,17 @@ class GCodeLoader(VirtualSDCardInterface):
 
         gcode_mutex = self.gcode.get_mutex()
         error_message = None
-        last_line = None
         while not self.must_pause_work:
+            # Pause if any other request is pending in the gcode class
+            if gcode_mutex.test():
+                self.reactor.pause(self.reactor.monotonic() + 0.100)
+                continue
+
+            # Dispatch command
+            self.cmd_from_sd = True
             try:
-                if last_line is not None:
-                    line = last_line
-                    last_line = None
-                else:
-                    line = next(self.current_file)
+                line = next(self.current_file)
+                self.helper.run_script_line(line)
             except StopIteration:
                 # End of file
                 self.current_file.close()
@@ -334,35 +337,15 @@ class GCodeLoader(VirtualSDCardInterface):
                 try:
                     self.gcode.run_script(self.on_error_gcode.render())
                 except:
-                    logging.exception("gcode_loader read on_error")
-                break
-            except:
-                logging.exception("gcode_loader read")
-                break
-
-            # Pause if any other request is pending in the gcode class
-            if gcode_mutex.test():
-                last_line = line
-                self.reactor.pause(self.reactor.monotonic() + 0.100)
-                continue
-
-            # Dispatch command
-            self.cmd_from_sd = True
-
-            try:
-                self.helper.run_script_line(line)
-            except CommandError as e:
-                error_message = str(e)
-                try:
-                    self.gcode.run_script(self.on_error_gcode.render())
-                except:
                     logging.exception("gcode_loader on_error")
                 break
             except:
-                logging.exception(f'gcode_loader dispatch, stacktrace {repr(line)}')
-                break
+                logging.exception(f'gcode_loader worker')
 
             self.cmd_from_sd = False
+
+            # Wait for side loaded commands
+            self.reactor.pause(self.reactor.NOW)
 
         if self.current_file:
             logging.info("Exiting SD card print (position %d)", self.current_file.pos)
