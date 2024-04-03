@@ -1,6 +1,7 @@
 name: klipper-gcode-loader
 author: vertexbz@gmail.com
 license: WTF
+type: extension
 provides:
   klipper-config:
     link:
