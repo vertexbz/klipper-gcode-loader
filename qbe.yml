@@ -6,7 +6,7 @@ provides:
   klipper-config:
     link:
       - [ loader.cfg, 0000-gcode-loader.loader.cfg ]
-    template:
+    blueprint:
       - source: config.cfg
         target: gcode-loader.cfg
   klipper-extension:
